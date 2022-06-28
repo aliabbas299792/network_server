@@ -1,0 +1,6 @@
+[submodule "subprojects/event_manager"]
+	path = subprojects/event_manager
+	url = https://github.com/aliabbas299792/event_manager
+[submodule "vendor/doctest"]
+	path = vendor/doctest
+	url = https://github.com/doctest/doctest
