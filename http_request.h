@@ -116,6 +116,12 @@ private:
       this->upgrade_insecure_requests = val_ptr;
     } else if (strcmp(header_key, "Upgrade") == 0) {
       this->upgrade = val_ptr;
+    } else if (strcmp(header_key, "Sec-WebSocket-Key") == 0) {
+      this->sec_websocket_key = val_ptr;
+    } else if (strcmp(header_key, "X-Forwarded-For") == 0) {
+      this->x_forwarded_for = val_ptr;
+    } else if (strcmp(header_key, "Range") == 0) {
+      this->range = val_ptr;
     }
   }
 
@@ -133,6 +139,9 @@ public:
   char *connection{};
   char *upgrade_insecure_requests{};
   char *upgrade{};
+  char *sec_websocket_key{};
+  char *x_forwarded_for{};
+  char *range{};
 
   bool valid_req = true; // assume it is valid from start
 public:
