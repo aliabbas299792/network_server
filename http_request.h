@@ -33,6 +33,9 @@ private:
       return;
     }
 
+    // advance by length of request
+    token_str = &token_str[req_type.size() + 1];
+
     char *save_ptr;
     char *path = strtok_r(token_str, " ", &save_ptr);
 
