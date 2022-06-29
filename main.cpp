@@ -1,4 +1,5 @@
 #include "subprojects/event_manager/event_manager.hpp"
+#include <endian.h>
 #include <iostream>
 
 #include <cstring>
@@ -6,6 +7,7 @@
 #include <netinet/tcp.h>
 #include <sys/socket.h>
 
+#include "http_request.h"
 #include "utility.h"
 
 constexpr int BACKLOG = 256;
@@ -99,8 +101,6 @@ int setup_listener_socket(event_manager &ev, int port) {
 void accept_callback(event_manager *ev, int listener_pfd,
                      sockaddr_storage *user_data, socklen_t size,
                      uint64_t pfd) {
-  std::cout << "got accept: " << pfd << "\n";
-
   uint8_t *buff = reinterpret_cast<uint8_t *>(std::calloc(4096, 1));
 
   ev->submit_read(pfd, buff, 4096);
@@ -110,15 +110,22 @@ void accept_callback(event_manager *ev, int listener_pfd,
 
 void read_callback(event_manager *ev, processed_data read_metadata,
                    uint64_t pfd) {
-  std::cout << "Got:\n\t" << read_metadata.buff << "\n";
+  char *read_buff = (char *)read_metadata.buff;
+  http_request req(read_buff); // buffer used for http request
+
+  if (!req.valid_req) {
+    // close the connection
+    ev->submit_shutdown(pfd, SHUT_RD);
+    return;
+  }
+
+  free(read_buff);
 
   std::string str =
       "HTTP/2 200 OK\ncontent-type: text/html; charset=utf-8\n\nhello world";
 
   char *write_buffer = (char *)malloc(str.size());
   str.copy(write_buffer, str.size());
-
-  free(read_metadata.buff);
 
   ev->submit_write(pfd, (uint8_t *)write_buffer, str.size());
 }
