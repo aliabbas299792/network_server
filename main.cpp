@@ -1,4 +1,5 @@
 #include "subprojects/event_manager/event_manager.hpp"
+#include <cstdint>
 #include <endian.h>
 #include <iostream>
 
@@ -108,6 +109,9 @@ void accept_callback(event_manager *ev, int listener_pfd,
   ev->submit_accept(listener_pfd);
 }
 
+void process_get_req(event_manager *ev, processed_data read_metadata,
+                     uint64_t pfd) {}
+
 void read_callback(event_manager *ev, processed_data read_metadata,
                    uint64_t pfd) {
   char *read_buff = (char *)read_metadata.buff;
@@ -119,15 +123,16 @@ void read_callback(event_manager *ev, processed_data read_metadata,
     return;
   }
 
-  free(read_buff);
+  if (req.req_type == "GET") {
+    process_get_req(ev, read_metadata, pfd);
+  }
+  // std::string str =
+  //     "HTTP/2 200 OK\ncontent-type: text/html; charset=utf-8\n\nhello world";
 
-  std::string str =
-      "HTTP/2 200 OK\ncontent-type: text/html; charset=utf-8\n\nhello world";
+  // char *write_buffer = (char *)malloc(str.size());
+  // str.copy(write_buffer, str.size());
 
-  char *write_buffer = (char *)malloc(str.size());
-  str.copy(write_buffer, str.size());
-
-  ev->submit_write(pfd, (uint8_t *)write_buffer, str.size());
+  // ev->submit_write(pfd, (uint8_t *)write_buffer, str.size());
 }
 
 void write_callback(event_manager *ev, processed_data write_metadata,
