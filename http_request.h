@@ -7,7 +7,8 @@
 #include <string>
 #include <vector>
 
-constexpr char HTTP_VER[] = "HTTP/1.1";
+constexpr char HTTP_VER11[] = "HTTP/1.1";
+constexpr char HTTP_VER10[] = "HTTP/1.0";
 
 class http_request {
 private:
@@ -49,7 +50,8 @@ private:
       return;
     }
 
-    if (strcmp(http_ver, HTTP_VER) != 0) {
+    if (strcmp(http_ver, HTTP_VER11) != 0 ||
+        strcmp(http_ver, HTTP_VER10) != 0) {
       return;
     }
 
