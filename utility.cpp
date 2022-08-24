@@ -1,7 +1,9 @@
 #include <cstring>
 #include <iostream>
+#include <netdb.h>
+#include <netinet/tcp.h>
 
-#include "utility.h"
+#include "utility.hpp"
 
 namespace utility {
 
@@ -53,4 +55,68 @@ void fatal_error(std::string error_message) {
   perror(std::string("Fatal Error: " + error_message).c_str());
   exit(1);
 }
+
+int setup_listener_pfd(int port, event_manager *ev) {
+  int listener_fd, listener_pfd;
+
+  int yes = true;
+  addrinfo hints, *server_info, *traverser;
+
+  std::memset(&hints, 0, sizeof(hints));
+  hints.ai_family = AF_INET;       // IPv4 or IPv6
+  hints.ai_socktype = SOCK_STREAM; // tcp
+  hints.ai_flags = AI_PASSIVE;     // use local IP
+
+  int ret_addrinfo, ret_bind;
+  ret_addrinfo =
+      getaddrinfo(NULL, std::to_string(port).c_str(), &hints, &server_info);
+
+  for (traverser = server_info; traverser != NULL;
+       traverser = traverser->ai_next) {
+    // make the pfd
+    listener_pfd = ev->socket_create_normally(
+        traverser->ai_family, traverser->ai_socktype, traverser->ai_protocol);
+    // get actual fd
+    listener_fd = ev->get_pfd_data(listener_pfd).fd;
+
+    // set socket flags
+    setsockopt(listener_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+    setsockopt(listener_fd, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(yes));
+    setsockopt(listener_fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes));
+
+    int keep_idle =
+        100; // The time (in seconds) the connection needs to remain idle before
+             // TCP starts sending keepalive probes, if the socket option
+             // SO_KEEPALIVE has been set on this socket.  This option should
+             // not be used in code intended to be portable.
+    setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPIDLE, &keep_idle,
+               sizeof(keep_idle));
+    int keep_interval =
+        100; // The time (in seconds) between individual keepalive probes. This
+             // option should not be used in code intended to be portable.
+    setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPINTVL, &keep_interval,
+               sizeof(keep_interval));
+    int keep_count = 5; // The maximum number of keepalive probes TCP should
+                        // send before dropping the connection.  This option
+                        // should not be used in code intended to be portable.
+    setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPCNT, &keep_count,
+               sizeof(keep_count));
+    ret_bind = bind(listener_fd, traverser->ai_addr, traverser->ai_addrlen);
+  }
+
+  if (ret_addrinfo < 0 || ret_bind < 0) {
+    std::cerr << "addrinfo or bind failed: " << ret_addrinfo << " # "
+              << ret_bind << "\n";
+    return -1;
+  }
+
+  freeaddrinfo(server_info);
+
+  if (listen(listener_fd, LISTEN_BACKLOG) < 0) {
+    return -1;
+  }
+
+  return listener_pfd;
+}
+
 } // namespace utility

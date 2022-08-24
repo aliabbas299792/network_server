@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "utility.h"
+#include "utility.hpp"
 #include "vendor/sha1/sha1.hpp"
 
 constexpr const char *CRLF = "\r\n";
