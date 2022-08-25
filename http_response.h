@@ -7,20 +7,13 @@
 #include "vendor/sha1/sha1.hpp"
 
 constexpr const char *CRLF = "\r\n";
-constexpr const char *websocket_magic_key =
-    "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+constexpr const char *websocket_magic_key = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 class http_response {
 private:
 public:
   enum class http_ver { HTTP_10, HTTP_11 };
-  enum class http_resp_codes {
-    RESP_101,
-    RESP_200,
-    RESP_404,
-    RESP_502,
-    RESP_505
-  };
+  enum class http_resp_codes { RESP_101, RESP_200, RESP_404, RESP_502, RESP_505 };
 
   std::string header_start_line(http_resp_codes response_code, http_ver ver) {
     std::string http_start_line{};
@@ -95,8 +88,7 @@ public:
     return utility::b64_encode(hash.c_str());
   }
 
-  http_response(http_resp_codes response_code, http_ver ver,
-                std::string sec_websocket_key) {
+  http_response(http_resp_codes response_code, http_ver ver, std::string sec_websocket_key) {
     auto header = make_top_of_header(response_code, ver);
     auto ws_header_value = get_accept_header_value(sec_websocket_key);
 
@@ -106,8 +98,7 @@ public:
     header += CRLF;
   }
 
-  http_response(http_resp_codes response_code, http_ver ver, bool accept_bytes,
-                std::string content_type, size_t content_length) {
+  http_response(http_resp_codes response_code, http_ver ver, bool accept_bytes, std::string content_type, size_t content_length) {
     auto header = make_top_of_header(response_code, ver);
 
     if (accept_bytes) {

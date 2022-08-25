@@ -2,8 +2,6 @@
 
 #include "subprojects/event_manager/event_manager.hpp"
 
-#include <string>
-
 namespace utility {
 
 int setup_listener_pfd(int port, event_manager *ev);

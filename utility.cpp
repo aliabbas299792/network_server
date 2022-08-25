@@ -9,12 +9,11 @@ namespace utility {
 
 struct b64quartet {
   b64quartet(char a, char b, char c) {
-    static char b64_alphabet[] = {
-        'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
-        'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-        'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
+    static char b64_alphabet[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+                                  'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+                                  'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+                                  'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+                                  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
     str[0] = b64_alphabet[(a & 0b11111100) >> 2];
     str[1] = b64_alphabet[(a & 0b00000011) << 4 | (b & 0b11110000) >> 4];
     str[2] = b64_alphabet[(b & 0b00001111) << 2 | (c & 0b11000000) >> 6];
@@ -47,8 +46,7 @@ std::string b64_encode(const char *str) {
 }
 
 void log_helper_function(std::string msg, bool cerr_or_not) {
-  std::cout << "[ " << __DATE__ << " | " << __TIME__ << " ]: " << msg
-            << std::endl;
+  std::cout << "[ " << __DATE__ << " | " << __TIME__ << " ]: " << msg << std::endl;
 }
 
 void fatal_error(std::string error_message) {
@@ -68,14 +66,12 @@ int setup_listener_pfd(int port, event_manager *ev) {
   hints.ai_flags = AI_PASSIVE;     // use local IP
 
   int ret_addrinfo, ret_bind;
-  ret_addrinfo =
-      getaddrinfo(NULL, std::to_string(port).c_str(), &hints, &server_info);
+  ret_addrinfo = getaddrinfo(NULL, std::to_string(port).c_str(), &hints, &server_info);
 
-  for (traverser = server_info; traverser != NULL;
-       traverser = traverser->ai_next) {
+  for (traverser = server_info; traverser != NULL; traverser = traverser->ai_next) {
     // make the pfd
-    listener_pfd = ev->socket_create_normally(
-        traverser->ai_family, traverser->ai_socktype, traverser->ai_protocol);
+    listener_pfd =
+        ev->socket_create_normally(traverser->ai_family, traverser->ai_socktype, traverser->ai_protocol);
     // get actual fd
     listener_fd = ev->get_pfd_data(listener_pfd).fd;
 
@@ -84,29 +80,23 @@ int setup_listener_pfd(int port, event_manager *ev) {
     setsockopt(listener_fd, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(yes));
     setsockopt(listener_fd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes));
 
-    int keep_idle =
-        100; // The time (in seconds) the connection needs to remain idle before
-             // TCP starts sending keepalive probes, if the socket option
-             // SO_KEEPALIVE has been set on this socket.  This option should
-             // not be used in code intended to be portable.
-    setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPIDLE, &keep_idle,
-               sizeof(keep_idle));
-    int keep_interval =
-        100; // The time (in seconds) between individual keepalive probes. This
-             // option should not be used in code intended to be portable.
-    setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPINTVL, &keep_interval,
-               sizeof(keep_interval));
+    int keep_idle = 100; // The time (in seconds) the connection needs to remain idle before
+                         // TCP starts sending keepalive probes, if the socket option
+                         // SO_KEEPALIVE has been set on this socket.  This option should
+                         // not be used in code intended to be portable.
+    setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPIDLE, &keep_idle, sizeof(keep_idle));
+    int keep_interval = 100; // The time (in seconds) between individual keepalive probes. This
+                             // option should not be used in code intended to be portable.
+    setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPINTVL, &keep_interval, sizeof(keep_interval));
     int keep_count = 5; // The maximum number of keepalive probes TCP should
                         // send before dropping the connection.  This option
                         // should not be used in code intended to be portable.
-    setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPCNT, &keep_count,
-               sizeof(keep_count));
+    setsockopt(listener_fd, IPPROTO_TCP, TCP_KEEPCNT, &keep_count, sizeof(keep_count));
     ret_bind = bind(listener_fd, traverser->ai_addr, traverser->ai_addrlen);
   }
 
   if (ret_addrinfo < 0 || ret_bind < 0) {
-    std::cerr << "addrinfo or bind failed: " << ret_addrinfo << " # "
-              << ret_bind << "\n";
+    std::cerr << "addrinfo or bind failed: " << ret_addrinfo << " # " << ret_bind << "\n";
     return -1;
   }
 
