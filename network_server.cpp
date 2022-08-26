@@ -1,5 +1,7 @@
 #include "network_server.hpp"
 #include "metadata.hpp"
+#include <cstdint>
+#include <cstring>
 
 network_server::network_server(int port, application_methods *callbacks) {
   if (callbacks == nullptr) {
@@ -19,17 +21,20 @@ network_server::network_server(int port, application_methods *callbacks) {
 }
 
 int network_server::get_task() {
-  int id = 0;
+  int id = 1;
 
-  if(task_freed_idxs.size() > 0) {
-    id = *task_freed_idxs.begin();
+  if (task_freed_idxs.size() > 0) {
+    id += *task_freed_idxs.begin();
     task_freed_idxs.erase(id);
 
     auto &freed_task = task_data[id];
     freed_task = task();
   } else {
     task_data.emplace_back();
+    id += task_data.size() - 1;
   }
+
+  return id;
 }
 
 int network_server::get_task(uint8_t *buff, size_t length) {
@@ -41,18 +46,16 @@ int network_server::get_task(uint8_t *buff, size_t length) {
   return id;
 }
 
-void network_server::free_task(int id) {
-  task_freed_idxs.insert(id);
-}
+void network_server::free_task(int task_id) { task_freed_idxs.insert(task_id); }
 
-void network_server::accept_callback(int listener_fd, sockaddr_storage *user_data,
-                                     socklen_t size, uint64_t pfd, int op_res_num, uint64_t task_id) {
+void network_server::accept_callback(int listener_fd, sockaddr_storage *user_data, socklen_t size,
+                                     uint64_t pfd, int op_res_num, uint64_t task_id) {
   if (op_res_num < 0) {
     switch (errno) {
     // for these errors, just try again, otherwise fail
     case ECONNABORTED:
     case EINTR:
-      ev->submit_accept(pfd);
+      ev->submit_accept(pfd, task_id);
       break;
     default: {
       // in case of any of these errors, just close the socket
@@ -70,6 +73,9 @@ void network_server::accept_callback(int listener_fd, sockaddr_storage *user_dat
 
   callbacks->accept_callback(pfd);
 
+  // for any accept task, a read request is submitted and the accept request is resubmitted
+  // if the user want this to be cancelled, they can just call close using the client num
+
   // also read from the user
   auto user_task_id = get_task();
   auto &task = task_data[user_task_id];
@@ -84,6 +90,8 @@ void network_server::accept_callback(int listener_fd, sockaddr_storage *user_dat
 
   // carry on listening, submits everything in the queue with it, not using task_id for this
   ev->submit_accept(listener_fd);
+
+  callbacks->accept_callback(pfd);
 }
 
 void network_server::read_callback(processed_data read_metadata, uint64_t pfd, uint64_t task_id) {
@@ -91,7 +99,7 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
     switch (errno) {
     // for these errors, just try again, otherwise fail
     case EINTR:
-      ev->submit_read(pfd, read_metadata.buff, read_metadata.length);
+      ev->submit_read(pfd, read_metadata.buff, read_metadata.length, task_id);
       break;
     default: {
       // in case of any of these errors, just close the socket
@@ -99,6 +107,15 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
 
       // there was some other error
       callbacks->close_callback(pfd);
+
+      auto &task = task_data[task_id];
+      if (task.op_type == operation_type::NETWORK_READ) {
+        // network reads are initiated only by the network server
+        // so we deal with the memory management
+        free(task.buff);
+      }
+
+      free_task(task_id);
     }
     }
 
@@ -106,49 +123,65 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
   }
 
   if (read_metadata.op_res_num == 0) { // read was 0, socket connection closed
+    auto &task = task_data[task_id];
+    if (task.op_type == operation_type::NETWORK_READ) {
+      // network reads are initiated only by the network server
+      // so we deal with the memory management
+      free(task.buff);
+    }
+
+    free_task(task_id);
+
     auto shutdown_code = ev->submit_shutdown(pfd, SHUT_WR);
 
     if (shutdown_code < 0) {                // shutdown procedure failed
       ev->shutdown_and_close_normally(pfd); // use normal shutdown()/close()
-      this->close_callback(pfd, 0);           // clean up resources in network server/application
+      this->close_callback(pfd, 0);         // clean up resources in network server/application
     }
 
     return;
   }
 
   auto &task = task_data[task_id];
-  read_data data{};
+  buff_data data{};
 
   // network reads will read once up to READ_SIZE bytes, whereas application reads read as much as they can
   // before returning what was requested
-  if(task.op_type == operation_type::APPLICATION_READ) {
-    size_t read_this_time = read_metadata.op_res_num;
-    auto total_progress = read_this_time + read_metadata.op_res_num;
+  if (task.op_type == operation_type::APPLICATION_READ) {
+    auto total_progress = task.progress + read_metadata.op_res_num;
 
-    if(total_progress < task.buff_length) {
-      ev->submit_read(pfd, &task.buff[total_progress], task.buff_length - total_progress);
+    if (total_progress < task.buff_length) {
+      ev->submit_read(pfd, &task.buff[total_progress], task.buff_length - total_progress, task_id);
       task.progress = total_progress;
       return;
     } else { // finished reading
       data.buffer = read_metadata.buff;
       data.read_amount = total_progress;
+
+      free_task(task_id); // task is completed so task id is freed (we assume user will free the buffer)
     }
 
-  } else if(task.op_type == operation_type::NETWORK_READ) {
+  } else if (task.op_type == operation_type::NETWORK_READ) {
     size_t read_this_time = read_metadata.op_res_num; // dealt with case that this is < 0 now
 
     // populate the data struct with necessary and useful info
     data.buffer = read_metadata.buff;
     data.read_amount = read_this_time;
+
+    std::memset(task.buff, 0, READ_SIZE); // reuse task since we're just going to read READ_SIZE bytes again
+    ev->submit_read(pfd, task.buff, READ_SIZE, task_id);
+
+    // don't need to free the task here, we're just reusing the older one
   }
-  
+
   callbacks->read_callback(data, pfd);
 }
 
 void network_server::write_callback(processed_data write_metadata, uint64_t pfd, uint64_t task_id) {
   if (write_metadata.op_res_num < 0) {
     switch (errno) {
-    // for these errors, just try again, otherwise fail
+      // for these errors, just try again, otherwise fail
+      ev->submit_read(pfd, write_metadata.buff, write_metadata.length, task_id);
     case EINTR:
       break;
     default: {
@@ -157,15 +190,48 @@ void network_server::write_callback(processed_data write_metadata, uint64_t pfd,
 
       // there was some other error
       callbacks->close_callback(pfd);
+
+      free_task(task_id);
       return;
     }
     }
   }
 
-  // write code
+  auto &task = task_data[task_id];
+
+  auto total_progress = task.progress + write_metadata.op_res_num;
+
+  if (total_progress < task.buff_length) {
+    ev->submit_write(pfd, &task.buff[total_progress], task.buff_length - total_progress, task_id);
+    task.progress = total_progress;
+  } else {
+    buff_data data{total_progress, task.buff};
+    callbacks->write_callback(data, pfd);
+
+    free_task(task_id); // done writing, task can be freed now
+  }
 }
 
-void network_server::shutdown_callback(int how, uint64_t pfd, int op_res_num, uint64_t task_id) {
+void network_server::shutdown_callback(int how, uint64_t pfd, int op_res_num, uint64_t additional_info) {
+
+  if (op_res_num < 0) {
+    // in case of any of these errors, just close the socket
+    ev->shutdown_and_close_normally(pfd);
+
+    // there was some other error
+    callbacks->close_callback(pfd);
+  }
+
+  switch (how) {
+  case SHUT_RD:
+    break;
+  case SHUT_RDWR:
+  case SHUT_WR:
+    ev->submit_close(pfd);
+  }
+}
+
+void network_server::close_callback(uint64_t pfd, int op_res_num, uint64_t additional_info) {
   if (op_res_num < 0) {
     // in case of any of these errors, just close the socket
     ev->shutdown_and_close_normally(pfd);
@@ -175,24 +241,14 @@ void network_server::shutdown_callback(int how, uint64_t pfd, int op_res_num, ui
     return;
   }
 
-  // shutdown code
+  callbacks->close_callback(pfd);
 }
 
-void network_server::close_callback(uint64_t pfd, int op_res_num, uint64_t task_id) {
-  if (op_res_num < 0) {
-    // in case of any of these errors, just close the socket
-    ev->shutdown_and_close_normally(pfd);
-
-    // there was some other error
-    callbacks->close_callback(pfd);
-    return;
-  }
-}
-
-void network_server::event_callback(int pfd, int op_res_num, uint64_t task_id) {
+void network_server::event_callback(int pfd, int op_res_num, uint64_t additional_info) {
   if (op_res_num < 0) {
     switch (errno) {
-    // for these errors, just try again, otherwise fail
+      // for these errors, just try again, otherwise fail
+      ev->submit_generic_event(pfd, additional_info);
     case EINTR:
       break;
     default: {
@@ -206,5 +262,5 @@ void network_server::event_callback(int pfd, int op_res_num, uint64_t task_id) {
     }
   }
 
-  // event code
+  callbacks->event_callback(additional_info, pfd);
 }
