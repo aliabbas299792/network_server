@@ -2,4 +2,8 @@
 
 constexpr int port = 4000;
 
-int main() { network_server server{port}; }
+int main() {
+    application_methods am{};
+
+    network_server server{port, &am};
+}

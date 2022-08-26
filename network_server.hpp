@@ -14,7 +14,8 @@ struct buff_data {
   buff_data() {}
 };
 
-enum operation_type { OTHER, APPLICATION_READ, APPLICATION_WRITE, NETWORK_READ, NETWORK_WRITE };
+// accept doesn't need any information for what it is
+enum operation_type { NONE, HTTP_READ, HTTP_WRITE, HTTP_CLOSE, WEBSOCKET_READ, WEBSOCKET_WRITE, WEBSOCKET_CLOSE, RAW_READ, RAW_WRITE, RAW_CLOSE, EVENT_READ };
 
 struct task {
   operation_type op_type{};
@@ -29,10 +30,19 @@ struct task {
 class application_methods {
 public:
   virtual void accept_callback(int client_num) {}
-  virtual void read_callback(buff_data data, int client_num) {}
-  virtual void write_callback(buff_data data, int client_num) {}
   virtual void event_callback(uint64_t task_id, int client_num) {}
-  virtual void close_callback(int client_num) {}
+  
+  virtual void raw_read_callback(buff_data data, int client_num) {}
+  virtual void raw_write_callback(buff_data data, int client_num) {}
+  virtual void raw_close_callback(int client_num) {}
+  
+  virtual void websocket_read_callback(buff_data data, int client_num) {}
+  virtual void websocket_write_callback(buff_data data, int client_num) {}
+  virtual void websocket_close_callback(int client_num) {}
+  
+  virtual void http_read_callback(buff_data data, int client_num) {}
+  virtual void http_write_callback(buff_data data, int client_num) {}
+  virtual void http_close_callback(int client_num) {}
 
   virtual ~application_methods(){};
 
@@ -63,8 +73,25 @@ private:
   void shutdown_callback(int how, uint64_t pfd, int op_res_num, uint64_t additional_info = -1) override;
   void close_callback(uint64_t pfd, int op_res_num, uint64_t additional_info = -1) override;
 
+private:
+  void accept_procedure();
+  void close_procedure(int pfd); // need to deal with HTTP, WEBSOCKET, RAW and NONE type connections
+
 public:
   network_server(int port, application_methods *callbacks);
+
+  int websocket_broadcast(const std::ranges::input_range auto &container);
+  int websocket_read(); // same as normal read but carries info about what connection type
+  int websocket_write();
+  int websocket_close();
+
+  int http_read(); // same as normal read but carries info about what connection type
+  int http_write();
+  int http_close();
+
+  int raw_read(); // same as normal read but carries info about what connection type
+  int raw_write();
+  int raw_close();
 };
 
 #endif
