@@ -3,7 +3,7 @@
 constexpr int port = 4000;
 
 int main() {
-    application_methods am{};
+  application_methods am{};
 
-    network_server server{port, &am};
+  network_server server{port, &am};
 }

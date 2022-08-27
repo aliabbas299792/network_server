@@ -1,0 +1,114 @@
+#include "network_server.hpp"
+#include "subprojects/event_manager/header/event_manager_metadata.hpp"
+#include <sys/socket.h>
+
+network_server::network_server(int port, application_methods *callbacks) {
+  if (callbacks == nullptr) {
+    std::string error = "Application methods callbacks must be set (" + std::string(__FUNCTION__);
+    error += ": " + std::to_string(__LINE__);
+    utility::fatal_error(error);
+  }
+
+  ev->set_server_methods(this);
+
+  this->callbacks = callbacks;
+
+  listener_pfd = utility::setup_listener_pfd(port, ev);
+  if (ev->submit_accept(listener_pfd) < 0) {
+    utility::fatal_error("Listener accept failed");
+  }
+
+  ev->start();
+}
+
+int network_server::get_task() {
+  int id = 1;
+
+  if (task_freed_idxs.size() > 0) {
+    id += *task_freed_idxs.begin();
+    task_freed_idxs.erase(id);
+
+    auto &freed_task = task_data[id];
+    freed_task = task();
+  } else {
+    task_data.emplace_back();
+    id += task_data.size() - 1;
+  }
+
+  return id;
+}
+
+int network_server::get_task(uint8_t *buff, size_t length) {
+  auto id = get_task();
+  auto &task = task_data[id];
+  task.buff = buff;
+  task.buff_length = length;
+
+  return id;
+}
+
+void network_server::free_task(int task_id) { task_freed_idxs.insert(task_id); }
+
+void network_server::close_pfd_gracefully(int pfd, uint64_t task_id) {
+  const auto &pfd_info = ev->get_pfd_data(pfd);
+  auto &task_info = task_data[task_id];
+
+  switch (task_info.op_type) {
+  case operation_type::HTTP_READ:
+  case operation_type::HTTP_WRITE:
+    task_info.op_type = operation_type::HTTP_CLOSE;
+    break;
+  case operation_type::WEBSOCKET_READ:
+  case operation_type::WEBSOCKET_WRITE:
+    task_info.op_type = operation_type::WEBSOCKET_CLOSE;
+    break;
+  case operation_type::RAW_READ:
+  case operation_type::RAW_WRITE:
+    task_info.op_type = operation_type::RAW_CLOSE;
+    break;
+  default:
+    break;
+  }
+
+  if (pfd_info.type == fd_types::NETWORK) {
+    // only HTTP_*, WEBSOCKET_*, maybe RAW_* and NETWORK_UNKNOWN
+    auto shutdown_code = ev->submit_shutdown(pfd, SHUT_RDWR, task_id);
+
+    if (shutdown_code < 0) {
+      ev->shutdown_and_close_normally(pfd);
+      application_close_callback(pfd, task_id);
+    }
+  } else {
+    // only EVENT_READ and maybe RAW_*
+    ev->close_pfd(pfd);
+    free_task(task_id);
+  }
+}
+
+void network_server::application_close_callback(int pfd, int task_id) {
+  const auto &task = task_data[task_id];
+
+  switch (task.op_type) {
+  case HTTP_READ:
+  case HTTP_WRITE:
+  case HTTP_CLOSE:
+    callbacks->http_close_callback(pfd);
+    break;
+  case WEBSOCKET_READ:
+  case WEBSOCKET_WRITE:
+  case WEBSOCKET_CLOSE:
+    callbacks->websocket_close_callback(pfd);
+    break;
+  case RAW_READ:
+  case RAW_WRITE:
+  case RAW_CLOSE:
+    callbacks->websocket_close_callback(pfd);
+    break;
+  case EVENT_READ:      // don't expect to deal with this here
+  case NETWORK_UNKNOWN: // this doesn't get a callback
+    break;
+  }
+
+  free_task(task_id);
+  // task is no longer needed since related pfd has been closed
+}

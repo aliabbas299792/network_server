@@ -4,5 +4,5 @@ libevent_manager_proj = subproject('event_manager')
 libevent_manager_dep = libevent_manager_proj.get_variable('libevent_manager_dep')
 
 executable('test_proj', [
-    'main.cpp', 'utility.cpp', 'network_server_callbacks.cpp', 'network_server.cpp', 'http.cpp', 'websocket.cpp'
+    'main.cpp', 'utility.cpp', 'callbacks.cpp', 'core.cpp', 'http.cpp', 'websocket.cpp', 'intermediary_methods.cpp'
 ], dependencies: [libevent_manager_dep])

@@ -72,6 +72,11 @@ int setup_listener_pfd(int port, event_manager *ev) {
     // make the pfd
     listener_pfd =
         ev->socket_create_normally(traverser->ai_family, traverser->ai_socktype, traverser->ai_protocol);
+
+    if (listener_fd < 0) {
+      utility::fatal_error("Opening socket for listening failed");
+    }
+
     // get actual fd
     listener_fd = ev->get_pfd_data(listener_pfd).fd;
 
