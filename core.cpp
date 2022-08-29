@@ -2,13 +2,14 @@
 #include "subprojects/event_manager/header/event_manager_metadata.hpp"
 #include <sys/socket.h>
 
-network_server::network_server(int port, application_methods *callbacks) {
+network_server::network_server(int port, event_manager *ev, application_methods *callbacks) {
   if (callbacks == nullptr) {
     std::string error = "Application methods callbacks must be set (" + std::string(__FUNCTION__);
     error += ": " + std::to_string(__LINE__);
     utility::fatal_error(error);
   }
 
+  this->ev = ev;
   ev->set_server_methods(this);
 
   this->callbacks = callbacks;
@@ -22,17 +23,17 @@ network_server::network_server(int port, application_methods *callbacks) {
 }
 
 int network_server::get_task() {
-  int id = 1;
+  int id = 0;
 
   if (task_freed_idxs.size() > 0) {
-    id += *task_freed_idxs.begin();
+    id = *task_freed_idxs.begin();
     task_freed_idxs.erase(id);
 
     auto &freed_task = task_data[id];
     freed_task = task();
   } else {
     task_data.emplace_back();
-    id += task_data.size() - 1;
+    id = task_data.size() - 1;
   }
 
   return id;
@@ -54,7 +55,7 @@ void network_server::close_pfd_gracefully(int pfd, uint64_t task_id) {
   auto &task_info = task_data[task_id];
 
   switch (task_info.op_type) {
-  case operation_type::HTTP_READ:
+  case operation_type::NETWORK_READ:
   case operation_type::HTTP_WRITE:
     task_info.op_type = operation_type::HTTP_CLOSE;
     break;
@@ -89,7 +90,8 @@ void network_server::application_close_callback(int pfd, int task_id) {
   const auto &task = task_data[task_id];
 
   switch (task.op_type) {
-  case HTTP_READ:
+    break;
+  case NETWORK_READ:
   case HTTP_WRITE:
   case HTTP_CLOSE:
     callbacks->http_close_callback(pfd);
@@ -102,10 +104,9 @@ void network_server::application_close_callback(int pfd, int task_id) {
   case RAW_READ:
   case RAW_WRITE:
   case RAW_CLOSE:
-    callbacks->websocket_close_callback(pfd);
+    callbacks->raw_close_callback(pfd);
     break;
-  case EVENT_READ:      // don't expect to deal with this here
-  case NETWORK_UNKNOWN: // this doesn't get a callback
+  case EVENT_READ: // don't expect to deal with this here
     break;
   }
 

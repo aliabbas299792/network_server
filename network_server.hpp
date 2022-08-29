@@ -1,8 +1,10 @@
 #ifndef NETWORK_SERVER
 #define NETWORK_SERVER
 
+#include "metadata.hpp"
 #include "subprojects/event_manager/event_manager.hpp"
 #include "utility.hpp"
+#include <cstring>
 #include <set>
 
 class network_server; // forward declaration for application methods
@@ -16,19 +18,24 @@ struct buff_data {
   buff_data() {}
 };
 
+template <typename T>
+concept int_range = requires {
+  std::ranges::input_range<int>;
+};
+
 // accept doesn't need any information for what it is
+// websocket read and http read are under network read
 enum operation_type {
-  NETWORK_UNKNOWN,
-  HTTP_READ,
-  HTTP_WRITE,
-  HTTP_CLOSE,
-  WEBSOCKET_READ,
-  WEBSOCKET_WRITE,
-  WEBSOCKET_CLOSE,
+  NETWORK_READ,
+  WEBSOCKET_READ, // only used to get correct close callback
   RAW_READ,
+  EVENT_READ,
+  WEBSOCKET_WRITE,
+  HTTP_WRITE,
   RAW_WRITE,
-  RAW_CLOSE,
-  EVENT_READ
+  WEBSOCKET_CLOSE,
+  HTTP_CLOSE,
+  RAW_CLOSE
 };
 
 struct task {
@@ -38,7 +45,8 @@ struct task {
   size_t buff_length{};
   size_t progress{}; // i.e pos in buffer
 
-  bool shutdown = false; // for net sockets
+  char shutdown = false;       // for net sockets
+  char last_read_zero = false; // for net sockets
 };
 
 // the term client num is synonymous with pfd (pseudo fd) for the application
@@ -47,9 +55,6 @@ class application_methods {
 public:
   virtual void accept_callback(int client_num) {}
   virtual void event_trigger_callback(int client_num, uint64_t additional_info) {}
-  // there is no way to async close an eventfd, if this is triggered it is due
-  // to an eventfd read being cancelled because an error occurred (like it was closed)
-  virtual void event_error_close_callback(int client_num, uint64_t additional_info) {}
 
   virtual void raw_read_callback(buff_data data, int client_num) {}
   virtual void raw_write_callback(buff_data data, int client_num) {}
@@ -60,8 +65,12 @@ public:
   virtual void websocket_close_callback(int client_num) {}
 
   virtual void http_read_callback(buff_data data, int client_num) {}
-  virtual void http_write_callback(buff_data data, int client_num) {}
+  virtual void http_write_callback(buff_data data, int client_num) { std::cout << "http write success\n"; }
   virtual void http_close_callback(int client_num) {}
+
+  // there is no way to async close an eventfd, if this is triggered it is due
+  // to an eventfd read being cancelled because an error occurred (like it was closed)
+  virtual void event_error_close_callback(int client_num, uint64_t additional_info) {}
 
   virtual ~application_methods(){};
 
@@ -100,30 +109,35 @@ private:
   void shutdown_procedure(int pfd);
   void close_pfd_gracefully(int pfd, uint64_t task_id); // will call shutdown if needed
 
-  void initialisation_accept_procedure(int pfd, int task_id) {
+  void network_read_procedure(int pfd, buff_data data) {
+    auto task_id = get_task();
+    // std::cout << "new task id " << task_id << "\n";
+    const char *msg = "HTTP/2 200 OK\ncontent-type: text/html; charset=utf-8\n\nhello world";
+    uint8_t *buff = new uint8_t[strlen(msg)];
+    strcpy((char *)buff, msg);
     auto &task = task_data[task_id];
-
-    // stuff
-
-    auto some_condition = true;
-    auto some_other_condition = true;
-    if (some_condition) {
-      task.op_type = operation_type::HTTP_READ;
-    } else if (some_other_condition) {
-      task.op_type = operation_type::WEBSOCKET_READ;
-    } else {
-      task.op_type = operation_type::RAW_READ;
-    }
+    task.op_type = HTTP_WRITE;
+    task.buff = buff;
+    task.buff_length = strlen(msg);
+    ev->submit_write(pfd, (uint8_t *)msg, strlen(msg), task_id);
+    std::cout << "i am writing task id " << task_data[task_id].buff << "\n";
+    // if HTTP do HTTP thing
+    // if websocket negotiation do negotiation
+    // else websocket frames and must be active websocket
+    // otherwise close the connection
   }
 
 public:
-  network_server(int port, application_methods *callbacks);
+  network_server(int port, event_manager *ev, application_methods *callbacks);
 
-  // read not reading since this is auto submitted
-  int websocket_broadcast(const std::ranges::input_range auto &container, buff_data data) {
+  // don't need HTTP or WEBSOCKET read because
+  // they are autosubmitted
+
+  template <int_range T> int websocket_broadcast(const T &container, buff_data data) {
     for (const auto pfd : container) {
       // ev->queue_write(pfd, uint8_t *buffer, size_t length)
     }
+    return 1;
   }
 
   int websocket_write(int pfd, buff_data data) {
