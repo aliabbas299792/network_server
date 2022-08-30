@@ -15,9 +15,9 @@ bool network_server::http_response_method(int pfd, buff_data data) {
 
 // read not reading since this is auto submitted
 int network_server::http_write(int pfd, char *buff, size_t buff_length) {
-  auto task_id = get_task(operation_type::HTTP_WRITE);
-
-  return ev->submit_write(pfd, reinterpret_cast<uint8_t *>(buff), buff_length, task_id);
+  auto buff_ptr = reinterpret_cast<uint8_t *>(buff);
+  auto task_id = get_task(operation_type::HTTP_WRITE, buff_ptr, buff_length);
+  return ev->submit_write(pfd, buff_ptr, buff_length, task_id);
 }
 
 int network_server::http_close(int pfd) {

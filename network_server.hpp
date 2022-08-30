@@ -88,7 +88,7 @@ private:
   std::vector<task> task_data{};
   std::set<int> task_freed_idxs{};
   int get_task();
-  int get_task(operation_type type, uint8_t *buff = nullptr, size_t length = -1);
+  int get_task(operation_type type, uint8_t *buff, size_t length);
   void free_task(int task_id);
 
 private:
@@ -131,7 +131,7 @@ public:
   }
 
   int websocket_write(int pfd, buff_data data) {
-    auto task_id = get_task(operation_type::WEBSOCKET_WRITE);
+    auto task_id = get_task(operation_type::WEBSOCKET_WRITE, data.buffer, data.size);
 
     // make a new buffer which is slightly bigger
     // add in websocket headings and stuff in there
