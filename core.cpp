@@ -43,8 +43,11 @@ int network_server::get_task(operation_type type, uint8_t *buff, size_t length) 
   auto id = get_task();
   auto &task = task_data[id];
   task.op_type = type;
-  task.buff = buff;
-  task.buff_length = length;
+
+  if (buff != nullptr) {
+    task.buff = buff;
+    task.buff_length = length;
+  }
 
   return id;
 }

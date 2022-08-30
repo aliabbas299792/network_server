@@ -69,7 +69,7 @@ public:
   virtual void websocket_close_callback(int client_num) {}
 
   virtual void http_read_callback(http_request req, int client_num) {}
-  virtual void http_write_callback(buff_data data, int client_num) { std::cout << "http write success\n"; }
+  virtual void http_write_callback(buff_data data, int client_num) {}
   virtual void http_close_callback(int client_num) {}
 
   // there is no way to async close an eventfd, if this is triggered it is due
@@ -136,7 +136,7 @@ public:
     // make a new buffer which is slightly bigger
     // add in websocket headings and stuff in there
 
-    return ev->submit_write(pfd, data.buffer, data.size);
+    return ev->submit_write(pfd, data.buffer, data.size, task_id);
   }
 
   int websocket_close(int pfd) {

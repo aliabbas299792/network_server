@@ -8,8 +8,6 @@ constexpr int port = 4000;
 class app_methods : public application_methods {
 public:
   void http_read_callback(http_request req, int client_num) override {
-    std::cout << "\"" << req.path << "\" is path\n";
-
     std::string content = "<h1>Hello world!</h1>";
     http_response resp{http_resp_codes::RESP_200_OK, http_ver::HTTP_10, false, "text/html", content};
     auto resp_data = resp.allocate_buffer();

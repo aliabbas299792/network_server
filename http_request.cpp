@@ -4,11 +4,8 @@ void http_request::req_type_data_parser(char *token_str) {
   // the smallest valid get line
   const int min_length = strlen("GET / HTTP/1.1");
 
-  std::cout << token_str << "\n";
-
   if (strlen(token_str) < min_length) {
     valid_req = false;
-    std::cout << "y\n";
     return;
   }
 
@@ -23,7 +20,6 @@ void http_request::req_type_data_parser(char *token_str) {
 
   if (!is_req_type) {
     valid_req = false;
-    std::cout << "z\n";
     return;
   }
 
@@ -35,22 +31,18 @@ void http_request::req_type_data_parser(char *token_str) {
 
   if (path == nullptr) {
     valid_req = false;
-    std::cout << "a\n";
     return;
   }
 
   char *http_ver = strtok_r(nullptr, " ", &save_ptr);
 
-  std::cout << http_ver << "\n";
   if (http_ver == nullptr) {
     valid_req = false;
-    std::cout << "b\n";
     return;
   }
 
   if (strcmp(http_ver, HTTP_VER11) != 0 && strcmp(http_ver, HTTP_VER10) != 0) {
     valid_req = false;
-    std::cout << "c\n";
     return;
   }
 

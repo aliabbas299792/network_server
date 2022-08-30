@@ -159,7 +159,7 @@ void network_server::write_callback(processed_data write_metadata, uint64_t pfd,
     switch (errno) {
     case EINTR:
       // for these errors, just try again, otherwise fail
-      ev->submit_read(pfd, write_metadata.buff, write_metadata.length, task_id);
+      ev->submit_write(pfd, write_metadata.buff, write_metadata.length, task_id);
       break;
     default: {
       // in case of any of these errors, just close the socket
