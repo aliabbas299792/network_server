@@ -1,6 +1,7 @@
 #ifndef HTTP_RESP
 #define HTTP_RESP
 
+#include <cstring>
 #include <string>
 
 #include "utility.hpp"
@@ -9,12 +10,11 @@
 constexpr const char *CRLF = "\r\n";
 constexpr const char *websocket_magic_key = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
+enum class http_ver { HTTP_10, HTTP_11 };
+enum class http_resp_codes { RESP_101, RESP_200_OK, RESP_404, RESP_502, RESP_505 };
+
 class http_response {
 private:
-public:
-  enum class http_ver { HTTP_10, HTTP_11 };
-  enum class http_resp_codes { RESP_101, RESP_200, RESP_404, RESP_502, RESP_505 };
-
   std::string header_start_line(http_resp_codes response_code, http_ver ver) {
     std::string http_start_line{};
     switch (ver) {
@@ -32,8 +32,8 @@ public:
     case http_resp_codes::RESP_101:
       http_start_line += "Switching Protocols";
       break;
-    case http_resp_codes::RESP_200:
-      http_start_line += "OK";
+    case http_resp_codes::RESP_200_OK:
+      http_start_line += "200 OK";
       break;
     case http_resp_codes::RESP_404:
       http_start_line += "Not Found";
@@ -51,6 +51,7 @@ public:
 
   std::string make_top_of_header(http_resp_codes response_code, http_ver ver) {
     auto header = header_start_line(response_code, ver);
+    header += CRLF;
 
     switch (response_code) {
 
@@ -59,8 +60,8 @@ public:
       header += CRLF;
       header += "Connection: Upgrade";
       header += CRLF;
-      return header;
-    case http_resp_codes::RESP_200:
+      break;
+    case http_resp_codes::RESP_200_OK:
       header += "Cache-Control: no-cache, no-store, must-revalidate";
       header += CRLF;
       header += "Pragma: no-cache";
@@ -74,8 +75,10 @@ public:
       header += CRLF;
     case http_resp_codes::RESP_502:
     case http_resp_codes::RESP_505:
-      return header;
+      break;
     }
+
+    return header;
   }
 
   std::string get_accept_header_value(std::string sec_websocket_key) {
@@ -88,38 +91,55 @@ public:
     return utility::b64_encode(hash.c_str());
   }
 
+private:
+  std::string response_data{};
+
+public:
   http_response(http_resp_codes response_code, http_ver ver, std::string sec_websocket_key) {
-    auto header = make_top_of_header(response_code, ver);
+    response_data = make_top_of_header(response_code, ver);
     auto ws_header_value = get_accept_header_value(sec_websocket_key);
 
-    header += "Sec-WebSocket-Accept: ";
-    header += ws_header_value;
-    header += CRLF;
-    header += CRLF;
+    response_data += "Sec-WebSocket-Accept: ";
+    response_data += ws_header_value;
+    response_data += CRLF;
+    response_data += CRLF;
   }
 
-  http_response(http_resp_codes response_code, http_ver ver, bool accept_bytes, std::string content_type, size_t content_length) {
-    auto header = make_top_of_header(response_code, ver);
+  http_response(http_resp_codes response_code, http_ver ver, bool accept_bytes, std::string content_type,
+                std::string content) {
+    response_data = make_top_of_header(response_code, ver);
+    response_data += "Content-Type: ";
+    response_data += content_type;
+    response_data += CRLF;
 
     if (accept_bytes) {
-      header += content_type;
-      header += "Accept-Ranges: bytes";
-      header += CRLF;
-      header += "Content-Length: ";
-      header += content_length;
-      header += CRLF;
-      header += "Range: bytes=0-";
-      header += content_length;
-      header += "/";
+      response_data += "Accept-Ranges: bytes";
+      response_data += CRLF;
+      response_data += "Content-Length: ";
+      response_data += content.length();
+      response_data += CRLF;
+      response_data += "Range: bytes=0-";
+      response_data += content.length();
+      response_data += "/";
     } else {
-      header += content_type;
-      header += "Content-Length: ";
+      response_data += "Content-Length: ";
     }
 
-    header += content_length;
-    header += CRLF;
-    header += CRLF;
+    response_data += std::to_string(content.size());
+    response_data += CRLF;
+    response_data += CRLF;
+
+    response_data += content;
   }
+
+  // must free later
+  char *allocate_buffer() {
+    char *buff = new char[response_data.size() + 1];
+    memcpy(buff, response_data.c_str(), response_data.size() + 1);
+    return buff;
+  }
+
+  size_t length() { return response_data.length(); }
 };
 
 #endif

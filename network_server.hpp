@@ -1,6 +1,7 @@
 #ifndef NETWORK_SERVER
 #define NETWORK_SERVER
 
+#include "http_request.h"
 #include "metadata.hpp"
 #include "subprojects/event_manager/event_manager.hpp"
 #include "utility.hpp"
@@ -38,6 +39,7 @@ enum operation_type {
   RAW_CLOSE
 };
 
+// describes each submitted task
 struct task {
   operation_type op_type{};
 
@@ -52,6 +54,8 @@ struct task {
 // the term client num is synonymous with pfd (pseudo fd) for the application
 // stuff
 class application_methods {
+protected:
+  network_server *ns{}; // application_methods must have access to network_server for it to work
 public:
   virtual void accept_callback(int client_num) {}
   virtual void event_trigger_callback(int client_num, uint64_t additional_info) {}
@@ -64,7 +68,7 @@ public:
   virtual void websocket_write_callback(buff_data data, int client_num) {}
   virtual void websocket_close_callback(int client_num) {}
 
-  virtual void http_read_callback(buff_data data, int client_num) {}
+  virtual void http_read_callback(http_request req, int client_num) {}
   virtual void http_write_callback(buff_data data, int client_num) { std::cout << "http write success\n"; }
   virtual void http_close_callback(int client_num) {}
 
@@ -74,7 +78,7 @@ public:
 
   virtual ~application_methods(){};
 
-  network_server *ns{}; // application_methods must have access to network_server for it to work
+  void set_network_server(network_server *ns) { this->ns = ns; }
 };
 
 class network_server : public server_methods {
@@ -84,7 +88,7 @@ private:
   std::vector<task> task_data{};
   std::set<int> task_freed_idxs{};
   int get_task();
-  int get_task(uint8_t *buff, size_t length);
+  int get_task(operation_type type, uint8_t *buff = nullptr, size_t length = -1);
   void free_task(int task_id);
 
 private:
@@ -104,28 +108,14 @@ private:
   void close_callback(uint64_t pfd, int op_res_num, uint64_t task_id = -1) override;
 
 private:
-  // need to deal with HTTP, WEBSOCKET, RAW and NONE type connections
+  // need to deal with various types operation_types
   void application_close_callback(int pfd, int task_id);
-  void shutdown_procedure(int pfd);
-  void close_pfd_gracefully(int pfd, uint64_t task_id); // will call shutdown if needed
+  void close_pfd_gracefully(int pfd, uint64_t task_id = -1); // will call shutdown if needed
 
-  void network_read_procedure(int pfd, buff_data data) {
-    auto task_id = get_task();
-    // std::cout << "new task id " << task_id << "\n";
-    const char *msg = "HTTP/2 200 OK\ncontent-type: text/html; charset=utf-8\n\nhello world";
-    uint8_t *buff = new uint8_t[strlen(msg)];
-    strcpy((char *)buff, msg);
-    auto &task = task_data[task_id];
-    task.op_type = HTTP_WRITE;
-    task.buff = buff;
-    task.buff_length = strlen(msg);
-    ev->submit_write(pfd, (uint8_t *)msg, strlen(msg), task_id);
-    std::cout << "i am writing task id " << task_data[task_id].buff << "\n";
-    // if HTTP do HTTP thing
-    // if websocket negotiation do negotiation
-    // else websocket frames and must be active websocket
-    // otherwise close the connection
-  }
+  //
+  bool http_response_method(int pfd, buff_data data);
+  bool websocket_frame_response_method(int pfd, buff_data data);
+  void network_read_procedure(int pfd, buff_data data);
 
 public:
   network_server(int port, event_manager *ev, application_methods *callbacks);
@@ -141,9 +131,7 @@ public:
   }
 
   int websocket_write(int pfd, buff_data data) {
-    auto task_id = get_task();
-    auto &task = task_data[task_id];
-    task.op_type = operation_type::WEBSOCKET_WRITE;
+    auto task_id = get_task(operation_type::WEBSOCKET_WRITE);
 
     // make a new buffer which is slightly bigger
     // add in websocket headings and stuff in there
@@ -161,25 +149,8 @@ public:
   }
 
   // read not reading since this is auto submitted
-  int http_write(int pfd, buff_data data) {
-    auto task_id = get_task();
-    auto &task = task_data[task_id];
-    task.op_type = operation_type::HTTP_WRITE;
-
-    // make a new buffer which is slightly bigger
-    // add in http headings and stuff in there
-
-    return ev->submit_write(pfd, data.buffer, data.size);
-  }
-
-  int http_close(int pfd) {
-    auto task_id = get_task();
-    auto &task = task_data[task_id];
-    task.op_type = operation_type::HTTP_CLOSE;
-
-    close_pfd_gracefully(pfd, task_id);
-    return 0;
-  }
+  int http_write(int pfd, char *buff, size_t buff_length);
+  int http_close(int pfd);
 
   // same as normal read but carries info about what connection type
   int raw_read(int pfd, buff_data data) {
@@ -215,6 +186,8 @@ public:
   int local_stat();
   int local_fstat();
   int local_unlink();
+
+  void start();
 };
 
 #endif

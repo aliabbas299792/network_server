@@ -18,9 +18,9 @@ network_server::network_server(int port, event_manager *ev, application_methods 
   if (ev->submit_accept(listener_pfd) < 0) {
     utility::fatal_error("Listener accept failed");
   }
-
-  ev->start();
 }
+
+void network_server::start() { ev->start(); }
 
 int network_server::get_task() {
   int id = 0;
@@ -39,9 +39,10 @@ int network_server::get_task() {
   return id;
 }
 
-int network_server::get_task(uint8_t *buff, size_t length) {
+int network_server::get_task(operation_type type, uint8_t *buff, size_t length) {
   auto id = get_task();
   auto &task = task_data[id];
+  task.op_type = type;
   task.buff = buff;
   task.buff_length = length;
 
@@ -82,7 +83,9 @@ void network_server::close_pfd_gracefully(int pfd, uint64_t task_id) {
   } else {
     // only EVENT_READ and maybe RAW_*
     ev->close_pfd(pfd);
-    free_task(task_id);
+    if (task_id != -1u) {
+      free_task(task_id);
+    }
   }
 }
 
@@ -112,4 +115,13 @@ void network_server::application_close_callback(int pfd, int task_id) {
 
   free_task(task_id);
   // task is no longer needed since related pfd has been closed
+}
+
+void network_server::network_read_procedure(int pfd, buff_data data) {
+  // http_response returns true if it was valid data and took action
+  // websocket_frame_response returns true if it's a websocket frame
+  // otherwise close the connection
+  if (!http_response_method(pfd, data) && !websocket_frame_response_method(pfd, data)) {
+    close_pfd_gracefully(pfd);
+  }
 }

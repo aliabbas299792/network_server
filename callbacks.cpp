@@ -38,8 +38,6 @@ void network_server::accept_callback(int listener_fd, sockaddr_storage *user_dat
   task.buff_length = READ_SIZE;
   task.op_type = operation_type::NETWORK_READ; // don't know what it is yet
 
-  std::cout << "set buff for task with id " << user_task_id << "\n";
-
   // queues up the read, passes the task id as additional info
   if (ev->queue_read(pfd, task.buff, task.buff_length, user_task_id) < 0) {
     // if the queueing operation didn't work, end this connection
