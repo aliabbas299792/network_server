@@ -4,6 +4,7 @@
 #include <cstring>
 #include <string>
 
+#include "debug_mem_ops.hpp"
 #include "utility.hpp"
 #include "vendor/sha1/sha1.hpp"
 
@@ -163,7 +164,7 @@ public:
 
   // must free later
   char *allocate_buffer() {
-    char *buff = new char[response_data.size() + 1];
+    char *buff = (char *)MALLOC(response_data.size() + 1);
     memcpy(buff, response_data.c_str(), response_data.size() + 1);
     return buff;
   }

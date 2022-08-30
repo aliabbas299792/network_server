@@ -1,4 +1,5 @@
 #include <cstring>
+#include <ctime>
 #include <iostream>
 #include <netdb.h>
 #include <netinet/tcp.h>
@@ -46,7 +47,11 @@ std::string b64_encode(const char *str) {
 }
 
 void log_helper_function(std::string msg, bool cerr_or_not) {
-  std::cout << "[ " << __DATE__ << " | " << __TIME__ << " ]: " << msg << std::endl;
+  time_t t = time(NULL);
+  struct tm *tm = localtime(&t);
+  std::string time = asctime(tm);
+  time.pop_back();
+  std::cout << "[ " << time << " ]: " << msg << std::endl;
 }
 
 void fatal_error(std::string error_message) {

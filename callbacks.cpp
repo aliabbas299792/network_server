@@ -4,6 +4,8 @@
 #include <cstring>
 #include <sys/socket.h>
 
+#include "debug_mem_ops.hpp"
+
 void network_server::accept_callback(int listener_fd, sockaddr_storage *user_data, socklen_t size,
                                      uint64_t pfd, int op_res_num, uint64_t additional_info) {
   if (op_res_num < 0) {
@@ -33,7 +35,7 @@ void network_server::accept_callback(int listener_fd, sockaddr_storage *user_dat
   auto user_task_id = get_task();
   auto &task = task_data[user_task_id];
 
-  auto buff = new uint8_t[READ_SIZE];
+  auto buff = (uint8_t *)MALLOC(READ_SIZE);
   task.buff = buff;
   task.buff_length = READ_SIZE;
   task.op_type = operation_type::NETWORK_READ; // don't know what it is yet
@@ -41,7 +43,7 @@ void network_server::accept_callback(int listener_fd, sockaddr_storage *user_dat
   // queues up the read, passes the task id as additional info
   if (ev->queue_read(pfd, task.buff, task.buff_length, user_task_id) < 0) {
     // if the queueing operation didn't work, end this connection
-    delete[] buff;
+    FREE(buff);
     free_task(user_task_id);
     ev->shutdown_and_close_normally(pfd);
   }
@@ -92,7 +94,7 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
 
     // only network sockets had network server allocated buffers
     if (task.op_type == operation_type::NETWORK_READ) {
-      free(task.buff);
+      FREE(task.buff);
     }
 
     free_task(task_id);
@@ -178,7 +180,7 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
   if (total_progress >= task.buff_length) {
     callbacks->http_writev_callback(task.iovs, task.num_iovecs, pfd);
     close_pfd_gracefully(pfd, task_id);
-    delete[] task.iovs; // writev allocates some memory
+    FREE(task.iovs); // writev allocates some memory
     return;
   }
 

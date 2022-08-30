@@ -1,3 +1,4 @@
+#include "debug_mem_ops.hpp"
 #include "network_server.hpp"
 #include "subprojects/event_manager/header/event_manager_metadata.hpp"
 #include <cstring>
@@ -69,7 +70,7 @@ int network_server::get_task(operation_type type, struct iovec *iovecs, size_t n
 
     // will store the original iovecs so we can free them later
     // the buffer stuff is set using this as reference
-    task.iovs = new iovec[num_iovecs];
+    task.iovs = (struct iovec *)MALLOC(num_iovecs * sizeof(iovec));
     memcpy(task.iovs, task.buff, num_iovecs * sizeof(iovec));
   }
 
