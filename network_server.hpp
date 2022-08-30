@@ -33,6 +33,7 @@ enum operation_type {
   EVENT_READ,
   WEBSOCKET_WRITE,
   HTTP_WRITE,
+  HTTP_WRITEV,
   RAW_WRITE,
   WEBSOCKET_CLOSE,
   HTTP_CLOSE,
@@ -44,8 +45,11 @@ struct task {
   operation_type op_type{};
 
   uint8_t *buff{};
-  size_t buff_length{};
+  size_t buff_length = -1;
   size_t progress{}; // i.e pos in buffer
+
+  struct iovec *iovs{};   // for storing original iovecs
+  size_t num_iovecs = -1; // for writev
 
   char shutdown = false;       // for net sockets
   char last_read_zero = false; // for net sockets
@@ -70,6 +74,7 @@ public:
 
   virtual void http_read_callback(http_request req, int client_num) {}
   virtual void http_write_callback(buff_data data, int client_num) {}
+  virtual void http_writev_callback(struct iovec *data, size_t num_iovecs, int client_num) {}
   virtual void http_close_callback(int client_num) {}
 
   // there is no way to async close an eventfd, if this is triggered it is due
@@ -89,6 +94,7 @@ private:
   std::set<int> task_freed_idxs{};
   int get_task();
   int get_task(operation_type type, uint8_t *buff, size_t length);
+  int get_task(operation_type type, struct iovec *iovecs, size_t num_iovecs);
   void free_task(int task_id);
 
 private:
@@ -103,6 +109,7 @@ private:
                        int op_res_num, uint64_t additional_info = -1) override;
   void read_callback(processed_data read_metadata, uint64_t pfd, uint64_t task_id = -1) override;
   void write_callback(processed_data write_metadata, uint64_t pfd, uint64_t task_id = -1) override;
+  void writev_callback(processed_data_vecs write_metadata, uint64_t pfd, uint64_t task_id = -1) override;
   void event_callback(int pfd, int op_res_num, uint64_t additional_info = -1) override;
   void shutdown_callback(int how, uint64_t pfd, int op_res_num, uint64_t task_id = -1) override;
   void close_callback(uint64_t pfd, int op_res_num, uint64_t task_id = -1) override;
@@ -127,6 +134,11 @@ public:
   int websocket_close(int pfd);
 
   // read not reading since this is auto submitted
+  int http_writev(int pfd, struct iovec *iovs, size_t num_iovecs) {
+    auto task_id = get_task(operation_type::HTTP_WRITEV, iovs, num_iovecs);
+    return ev->submit_writev(pfd, iovs, num_iovecs, task_id);
+  }
+
   int http_write(int pfd, char *buff, size_t buff_length);
   int http_close(int pfd);
 

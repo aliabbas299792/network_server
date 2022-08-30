@@ -1,5 +1,6 @@
 #include "network_server.hpp"
 #include "subprojects/event_manager/header/event_manager_metadata.hpp"
+#include <cstring>
 #include <sys/socket.h>
 
 network_server::network_server(int port, event_manager *ev, application_methods *callbacks) {
@@ -52,9 +53,27 @@ int network_server::get_task(operation_type type, uint8_t *buff, size_t length) 
   return id;
 }
 
+int network_server::get_task(operation_type type, struct iovec *iovecs, size_t num_iovecs) {
+  auto id = get_task();
+  auto &task = task_data[id];
+  task.op_type = type;
+
+  if (iovecs != nullptr) {
+    task.buff = reinterpret_cast<uint8_t *>(iovecs);
+    task.num_iovecs = num_iovecs;
+
+    // will store the original iovecs so we can free them later
+    task.iovs = new iovec[num_iovecs];
+    memcpy(task.iovs, task.buff, num_iovecs * sizeof(iovec));
+  }
+
+  return id;
+}
+
 void network_server::free_task(int task_id) { task_freed_idxs.insert(task_id); }
 
 void network_server::close_pfd_gracefully(int pfd, uint64_t task_id) {
+  std::cout << "gracefully??????\n";
   const auto &pfd_info = ev->get_pfd_data(pfd);
   auto &task_info = task_data[task_id];
 
@@ -95,10 +114,13 @@ void network_server::close_pfd_gracefully(int pfd, uint64_t task_id) {
 void network_server::application_close_callback(int pfd, int task_id) {
   const auto &task = task_data[task_id];
 
+  std::cout << "closed??? why???\n";
+
   switch (task.op_type) {
     break;
   case NETWORK_READ:
   case HTTP_WRITE:
+  case HTTP_WRITEV:
   case HTTP_CLOSE:
     callbacks->http_close_callback(pfd);
     break;

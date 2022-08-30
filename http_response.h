@@ -107,6 +107,8 @@ public:
 
   http_response(http_resp_codes response_code, http_ver ver, bool accept_bytes, std::string content_type,
                 std::string content) {
+    auto size_str = std::to_string(content.size());
+
     response_data = make_top_of_header(response_code, ver);
     response_data += "Content-Type: ";
     response_data += content_type;
@@ -116,20 +118,47 @@ public:
       response_data += "Accept-Ranges: bytes";
       response_data += CRLF;
       response_data += "Content-Length: ";
-      response_data += content.length();
+      response_data += size_str;
       response_data += CRLF;
       response_data += "Range: bytes=0-";
-      response_data += content.length();
+      response_data += size_str;
       response_data += "/";
     } else {
       response_data += "Content-Length: ";
     }
 
-    response_data += std::to_string(content.size());
+    response_data += size_str;
     response_data += CRLF;
     response_data += CRLF;
 
     response_data += content;
+  }
+
+  http_response(http_resp_codes response_code, http_ver ver, bool accept_bytes, std::string content_type,
+                size_t content_size) {
+    auto size_str = std::to_string(content_size);
+
+    response_data = make_top_of_header(response_code, ver);
+    response_data += "Content-Type: ";
+    response_data += content_type;
+    response_data += CRLF;
+
+    if (accept_bytes) {
+      response_data += "Accept-Ranges: bytes";
+      response_data += CRLF;
+      response_data += "Content-Length: ";
+      response_data += size_str;
+      response_data += CRLF;
+      response_data += "Range: bytes=0-";
+      response_data += size_str;
+      response_data += "/";
+    } else {
+      response_data += "Content-Length: ";
+    }
+
+    response_data += size_str;
+    response_data += CRLF;
+    response_data += CRLF;
   }
 
   // must free later
