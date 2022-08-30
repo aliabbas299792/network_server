@@ -45,14 +45,6 @@ void app_methods::http_read_callback(http_request req, int client_num) {
   vecs[1].iov_len = len;
 
   ns->http_writev(client_num, vecs, 2);
-
-  // auto big_buff = new char[strlen(resp_data) + len];
-  // memcpy(big_buff, resp_data, strlen(resp_data));
-  // memcpy(&big_buff[strlen(resp_data)], content_data, len);
-
-  // std::cout << "we gotta write: \t\t" << len + strlen(resp_data) << "\n";
-
-  // ns->http_write(client_num, big_buff, len + strlen(resp_data));
 }
 
 void app_methods::http_write_callback(buff_data data, int client_num) {
@@ -62,13 +54,6 @@ void app_methods::http_write_callback(buff_data data, int client_num) {
 void app_methods::http_close_callback(int client_num) {
   std::cout << "connection closed: " << client_num << " at time " << (unsigned long)time(NULL) << "\n";
 }
-
-// class test_methods : public server_methods {
-// public:
-//   void write_callback(processed_data write_metadata, uint64_t pfd, uint64_t additional_info) {
-//     std::cout << write_metadata.length << " -- " << write_metadata.op_res_num << "\n";
-//   }
-// };
 
 int main() {
   std::ifstream file("test6.jpeg", std::ios::binary | std::ios::ate);
@@ -82,24 +67,4 @@ int main() {
   len = size;
 
   app_methods{};
-  // test_methods test{};
-  // event_manager ev{};
-  // ev.set_server_methods(&test);
-  // test.set_event_manager(&ev);
-
-  // auto pfd = ev.open_get_pfd_normally("test2.jpeg", O_RDWR | O_CREAT | O_EXCL, 0666);
-
-  // std::thread test_thread([&]() { ev.start(); });
-
-  // ev.submit_write(pfd, (uint8_t *)test1_img, len);
-
-  // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-  // ev.close_pfd(pfd);
-
-  // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-  // ev.kill();
-
-  // test_thread.join();
 }

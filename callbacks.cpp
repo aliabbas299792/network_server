@@ -55,7 +55,6 @@ void network_server::accept_callback(int listener_fd, sockaddr_storage *user_dat
 void network_server::read_callback(processed_data read_metadata, uint64_t pfd, uint64_t task_id) {
 
   if (read_metadata.op_res_num < 0) {
-    std::cout << "odd, read less than 0?\n";
     switch (errno) {
     // for these errors, just try again, otherwise fail
     case EINTR:
@@ -67,8 +66,6 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
     default: {
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
-
-      std::cout << "1\tpeculiar, we dying?\n";
       // there was some other error, clean up resources, call correct close callback
       application_close_callback(pfd, task_id);
 
@@ -85,7 +82,6 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
     // or if shutdown not called, but shutdown call fails
     // or if it isn't a network socket
     // then shutdown normally and call the close callback
-    std::cout << "2\tpeculiar, we dying? " << (int)task.shutdown << "\n";
     if ((ev->get_pfd_data(pfd).type != fd_types::NETWORK) || (task.shutdown && ev->close_pfd(pfd) < 0) ||
         (!task.shutdown && ev->submit_shutdown(pfd, SHUT_RDWR) < 0)) {
       ev->shutdown_and_close_normally(pfd);
@@ -149,7 +145,6 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
   default: {
     // shouldn't get here usually, but this is in case it does
     ev->shutdown_and_close_normally(pfd);
-    std::cout << "3\tpeculiar, we dying?\n";
     application_close_callback(pfd, task_id);
     free_task(task_id);
   }
@@ -168,8 +163,6 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
     default: {
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
-
-      std::cout << "4\tpeculiar, we dying?\n";
       // there was some other error
       application_close_callback(pfd, task_id);
       return;
@@ -177,44 +170,43 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
     }
   }
 
-  std::cout << "opres: " << write_metadata.op_res_num << "\n";
-
   auto total_progress = task.progress + write_metadata.op_res_num;
 
   auto buff_iovecs = reinterpret_cast<iovec *>(task.buff);
   size_t written{};
 
-  size_t total_size{};
-  for (int i = 0; i < task.num_iovecs; i++) {
-    total_size += task.iovs[i].iov_len;
-  }
-
-  std::cout << total_progress << " / " << total_size << "\n";
-
-  if (total_progress >= total_size) {
-    std::cout << "we done\n";
-    ev->close_pfd(pfd, task_id);
+  if (total_progress >= task.buff_length) {
+    callbacks->http_writev_callback(task.iovs, task.num_iovecs, pfd);
+    close_pfd_gracefully(pfd, task_id);
+    delete[] task.iovs; // writev allocates some memory
     return;
   }
 
+  // so all buffer offsets/lengths are reset
   std::memset(buff_iovecs, 0, sizeof(iovec) * task.num_iovecs);
 
-  for (int i = 0; i < task.num_iovecs; i++) {
+  for (size_t i = 0; i < task.num_iovecs; i++) {
     if (written + task.iovs[i].iov_len > total_progress) {
       auto offset_in_block = total_progress - written;
-      std::cout << "offset in block: " << offset_in_block << "\n";
+
+      // set first buffer to correct offset
       buff_iovecs[0].iov_base = &reinterpret_cast<uint8_t *>(task.iovs[i].iov_base)[offset_in_block];
       buff_iovecs[0].iov_len = task.iovs[i].iov_len - offset_in_block;
-
-      for (int j = 1; j + i < task.num_iovecs; j++) {
+      // set remaining buffers to rest of the iovecs
+      for (size_t j = 1; j + i < task.num_iovecs; j++) {
         buff_iovecs[j].iov_base = task.iovs[i + j].iov_base;
         buff_iovecs[j].iov_len = task.iovs[i + j].iov_len;
       }
+      break;
     } else if (written + task.iovs[i].iov_len == total_progress) {
-      for (int j = 1; j + i < task.num_iovecs; j++) {
+      // set remaining buffers to rest of the iovecs
+      // i++ because this entire iovec has been written, so begin writing from next one
+      i++;
+      for (int j = 0; j + i < task.num_iovecs; j++) {
         buff_iovecs[j].iov_base = task.iovs[i + j].iov_base;
         buff_iovecs[j].iov_len = task.iovs[i + j].iov_len;
       }
+      break;
     }
     written += task.iovs[i].iov_len;
   }
@@ -222,20 +214,12 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
   task.progress += write_metadata.op_res_num;
 
   ev->submit_writev(pfd, buff_iovecs, task.num_iovecs, task_id);
-
-  // auto total_length = 0;
-  // for (int i = 0; i < task.num_iovecs; i++) {
-  //   total_length += reinterpret_cast<struct iovec *>(task.buff)[i].iov_len;
-  // }
-
-  // std::cout << total_progress << " is how much was written, out of " << total_length << "\n";
 }
 
 void network_server::write_callback(processed_data write_metadata, uint64_t pfd, uint64_t task_id) {
   auto &task = task_data[task_id];
 
   if (write_metadata.op_res_num < 0) {
-    std::cout << "oh no\n";
     switch (errno) {
     case EINTR:
       // for these errors, just try again, otherwise fail
@@ -244,8 +228,6 @@ void network_server::write_callback(processed_data write_metadata, uint64_t pfd,
     default: {
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
-
-      std::cout << "5\tpeculiar, we dying?\n";
       // there was some other error
       application_close_callback(pfd, task_id);
       return;
@@ -255,14 +237,10 @@ void network_server::write_callback(processed_data write_metadata, uint64_t pfd,
 
   auto total_progress = task.progress + write_metadata.op_res_num;
 
-  std::cout << total_progress << " / " << task.buff_length << ", wrote: " << write_metadata.op_res_num
-            << ", left: " << task.buff_length - total_progress << "\n";
-
   if (total_progress < task.buff_length) {
     task.progress = total_progress;
     ev->submit_write(pfd, &task.buff[total_progress], task.buff_length - total_progress, task_id);
   } else {
-    std::cout << "we done???\n";
     buff_data data{total_progress, task.buff};
 
     switch (task.op_type) {
@@ -288,8 +266,6 @@ void network_server::shutdown_callback(int how, uint64_t pfd, int op_res_num, ui
   if (op_res_num < 0) {
     // in case of any of these errors, just close the socket
     ev->shutdown_and_close_normally(pfd);
-
-    std::cout << "6\tpeculiar, we dying?\n";
     // there was some other error
     application_close_callback(pfd, task_id);
   }
@@ -310,7 +286,6 @@ void network_server::close_callback(uint64_t pfd, int op_res_num, uint64_t task_
     ev->shutdown_and_close_normally(pfd);
   }
 
-  std::cout << "7\tpeculiar, we dying?\n";
   application_close_callback(pfd, task_id);
 }
 
