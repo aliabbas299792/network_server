@@ -122,70 +122,27 @@ public:
 
   // don't need HTTP or WEBSOCKET read because
   // they are autosubmitted
-
-  template <int_range T> int websocket_broadcast(const T &container, buff_data data) {
-    for (const auto pfd : container) {
-      // ev->queue_write(pfd, uint8_t *buffer, size_t length)
-    }
-    return 1;
-  }
-
-  int websocket_write(int pfd, buff_data data) {
-    auto task_id = get_task(operation_type::WEBSOCKET_WRITE, data.buffer, data.size);
-
-    // make a new buffer which is slightly bigger
-    // add in websocket headings and stuff in there
-
-    return ev->submit_write(pfd, data.buffer, data.size, task_id);
-  }
-
-  int websocket_close(int pfd) {
-    auto task_id = get_task();
-    auto &task = task_data[task_id];
-    task.op_type = operation_type::WEBSOCKET_CLOSE;
-
-    close_pfd_gracefully(pfd, task_id);
-    return 0;
-  }
+  template <int_range T> int websocket_broadcast(const T &container, buff_data data);
+  int websocket_write(int pfd, buff_data data);
+  int websocket_close(int pfd);
 
   // read not reading since this is auto submitted
   int http_write(int pfd, char *buff, size_t buff_length);
   int http_close(int pfd);
 
   // same as normal read but carries info about what connection type
-  int raw_read(int pfd, buff_data data) {
-    auto task_id = get_task();
-    auto &task = task_data[task_id];
-    task.op_type = operation_type::RAW_WRITE;
-
-    return ev->submit_read(pfd, data.buffer, data.size);
-  }
-
-  int raw_write(int pfd, buff_data data) {
-    auto task_id = get_task();
-    auto &task = task_data[task_id];
-    task.op_type = operation_type::RAW_WRITE;
-
-    return ev->submit_write(pfd, data.buffer, data.size);
-  }
-
-  int raw_close(int pfd) {
-    auto task_id = get_task();
-    auto &task = task_data[task_id];
-    task.op_type = operation_type::RAW_CLOSE;
-
-    close_pfd_gracefully(pfd, task_id);
-    return 0;
-  }
+  int raw_read(int pfd, buff_data data);
+  int raw_write(int pfd, buff_data data);
+  int raw_close(int pfd);
 
   int eventfd_open();
   int eventfd_trigger(int pfd);
-  int eventfd_prepare(int pfd);
+  int eventfd_prepare(int pfd, uint64_t additional_info);
 
-  int local_open();
-  int local_stat();
-  int local_fstat();
-  int local_unlink();
+  int local_open(const char *pathname, int flags);
+  int local_stat(const char *pathname, struct stat *buff);
+  int local_fstat(int pfd, struct stat *buff);
+  int local_unlink(const char *pathname);
 
   void start();
 };
