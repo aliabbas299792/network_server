@@ -1,5 +1,5 @@
 #include "../header/debug_mem_ops.hpp"
-#include "../header/network_server.hpp"
+#include "network_server.hpp"
 
 network_server::network_server(int port, event_manager *ev, application_methods *callbacks) {
   if (callbacks == nullptr) {

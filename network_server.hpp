@@ -2,9 +2,9 @@
 #define NETWORK_SERVER
 
 #include "../subprojects/event_manager/event_manager.hpp"
-#include "http_request.h"
-#include "metadata.hpp"
-#include "utility.hpp"
+#include "header/http_request.h"
+#include "header/metadata.hpp"
+#include "header/utility.hpp"
 #include <cstring>
 #include <set>
 
