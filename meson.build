@@ -9,3 +9,4 @@ libnetwork_server = library('network_server', src_files, dependencies: [libevent
 libnetwork_server_dep = declare_dependency(link_with: libnetwork_server)
 
 subdir('tests')
+subdir('example')
