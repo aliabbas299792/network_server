@@ -1,4 +1,4 @@
-#include "../header/network_server.hpp"
+#include "network_server.hpp"
 
 // same as normal read but carries info about what connection type
 int network_server::raw_read(int pfd, buff_data data) {
@@ -7,6 +7,16 @@ int network_server::raw_read(int pfd, buff_data data) {
   task.op_type = operation_type::RAW_WRITE;
 
   return ev->submit_read(pfd, data.buffer, data.size);
+}
+
+int network_server::raw_readv(int pfd, struct iovec *iovs, size_t num_iovecs) {
+  auto task_id = get_task(operation_type::RAW_READV, iovs, num_iovecs);
+  return ev->submit_readv(pfd, iovs, num_iovecs, task_id);
+}
+
+int network_server::raw_writev(int pfd, struct iovec *iovs, size_t num_iovecs) {
+  auto task_id = get_task(operation_type::RAW_WRITEV, iovs, num_iovecs);
+  return ev->submit_readv(pfd, iovs, num_iovecs, task_id);
 }
 
 int network_server::raw_write(int pfd, buff_data data) {

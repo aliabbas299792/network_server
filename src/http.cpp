@@ -12,6 +12,11 @@ bool network_server::http_response_method(int pfd, buff_data data) {
   return false;
 }
 
+int network_server::http_writev(int pfd, struct iovec *iovs, size_t num_iovecs) {
+  auto task_id = get_task(operation_type::HTTP_WRITEV, iovs, num_iovecs);
+  return ev->submit_writev(pfd, iovs, num_iovecs, task_id);
+}
+
 // read not reading since this is auto submitted
 int network_server::http_write(int pfd, char *buff, size_t buff_length) {
   auto buff_ptr = reinterpret_cast<uint8_t *>(buff);

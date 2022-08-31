@@ -13,6 +13,4 @@ This is just a thought for later.
 - test accept_bytes stuff with music/video
 - add in support for POSTing large amounts of data
 
-- add in readv in network server
-
 - add in TLS support

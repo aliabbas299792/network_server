@@ -173,7 +173,20 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
   size_t written{};
 
   if (total_progress >= task.buff_length) {
-    callbacks->http_writev_callback(task.iovs, task.num_iovecs, pfd);
+    switch (task.op_type) {
+    case HTTP_WRITEV:
+      callbacks->http_writev_callback(task.iovs, task.num_iovecs, pfd);
+      break;
+    case RAW_WRITEV:
+      callbacks->raw_writev_callback(task.iovs, task.num_iovecs, pfd);
+      break;
+    case WEBSOCKET_WRITEV:
+      callbacks->websocket_writev_callback(task.iovs, task.num_iovecs, pfd);
+      break;
+    default:
+      break;
+    }
+
     close_pfd_gracefully(pfd, task_id);
     FREE(task.iovs); // writev allocates some memory
     return;
@@ -211,6 +224,74 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
   task.progress += write_metadata.op_res_num;
 
   ev->submit_writev(pfd, buff_iovecs, task.num_iovecs, task_id);
+}
+
+void network_server::readv_callback(processed_data_vecs read_metadata, uint64_t pfd, uint64_t task_id) {
+  auto &task = task_data[task_id];
+
+  if (read_metadata.op_res_num < 0) {
+    switch (errno) {
+    case EINTR:
+      // for these errors, just try again, otherwise fail
+      ev->submit_readv(pfd, read_metadata.iovs, read_metadata.num_vecs, task_id);
+      break;
+    default: {
+      // in case of any of these errors, just close the socket
+      ev->shutdown_and_close_normally(pfd);
+      // there was some other error
+      application_close_callback(pfd, task_id);
+      return;
+    }
+    }
+  }
+
+  // most this code is nearly identical to stuff for writev, consider refactoring
+  // into a single helper method later
+
+  auto total_progress = task.progress + read_metadata.op_res_num;
+
+  auto buff_iovecs = reinterpret_cast<iovec *>(task.buff);
+  size_t read_so_far{};
+
+  if (total_progress >= task.buff_length) {
+    callbacks->raw_readv_callback(task.iovs, task.num_iovecs, pfd);
+    close_pfd_gracefully(pfd, task_id);
+    FREE(task.iovs); // writev allocates some memory
+    return;
+  }
+
+  // so all buffer offsets/lengths are reset
+  std::memset(buff_iovecs, 0, sizeof(iovec) * task.num_iovecs);
+
+  for (size_t i = 0; i < task.num_iovecs; i++) {
+    if (read_so_far + task.iovs[i].iov_len > total_progress) {
+      auto offset_in_block = total_progress - read_so_far;
+
+      // set first buffer to correct offset
+      buff_iovecs[0].iov_base = &reinterpret_cast<uint8_t *>(task.iovs[i].iov_base)[offset_in_block];
+      buff_iovecs[0].iov_len = task.iovs[i].iov_len - offset_in_block;
+      // set remaining buffers to rest of the iovecs
+      for (size_t j = 1; j + i < task.num_iovecs; j++) {
+        buff_iovecs[j].iov_base = task.iovs[i + j].iov_base;
+        buff_iovecs[j].iov_len = task.iovs[i + j].iov_len;
+      }
+      break;
+    } else if (read_so_far + task.iovs[i].iov_len == total_progress) {
+      // set remaining buffers to rest of the iovecs
+      // i++ because this entire iovec has been written, so begin writing from next one
+      i++;
+      for (int j = 0; j + i < task.num_iovecs; j++) {
+        buff_iovecs[j].iov_base = task.iovs[i + j].iov_base;
+        buff_iovecs[j].iov_len = task.iovs[i + j].iov_len;
+      }
+      break;
+    }
+    read_so_far += task.iovs[i].iov_len;
+  }
+
+  task.progress += read_metadata.op_res_num;
+
+  ev->submit_readv(pfd, buff_iovecs, task.num_iovecs, task_id);
 }
 
 void network_server::write_callback(processed_data write_metadata, uint64_t pfd, uint64_t task_id) {

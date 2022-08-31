@@ -2,11 +2,16 @@
 
 bool network_server::websocket_frame_response_method(int pfd, buff_data data) { return false; }
 
-template <int_range T> int websocket_broadcast(const T &container, buff_data data) {
+template <int_range T> int network_server::websocket_broadcast(const T &container, buff_data data) {
   for (const auto pfd : container) {
     // ev->queue_write(pfd, uint8_t *buffer, size_t length)
   }
   return 1;
+}
+
+int network_server::websocket_writev(int pfd, struct iovec *iovs, size_t num_iovecs) {
+  auto task_id = get_task(operation_type::WEBSOCKET_WRITEV, iovs, num_iovecs);
+  return ev->submit_writev(pfd, iovs, num_iovecs, task_id);
 }
 
 int network_server::websocket_write(int pfd, buff_data data) {
