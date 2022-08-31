@@ -4,9 +4,9 @@
 #include <cstring>
 #include <string>
 
+#include "../vendor/sha1/sha1.hpp"
 #include "debug_mem_ops.hpp"
 #include "utility.hpp"
-#include "vendor/sha1/sha1.hpp"
 
 constexpr const char *CRLF = "\r\n";
 constexpr const char *websocket_magic_key = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";

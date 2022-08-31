@@ -1,17 +1,9 @@
-#ifndef DEBUG_MEM_OPS
-#define DEBUG_MEM_OPS
+#include "../header/debug_mem_ops.hpp"
 
-#include "utility.hpp"
-#include <cstddef>
-#include <cstdint>
-#include <cstdlib>
-#include <unordered_map>
+std::unordered_map<uint64_t, size_t> PTR_TO_ALLOC{};
+size_t MEM_ALLOCATED{};
 
-#define DEBUG_MODE
-
-extern size_t MEM_ALLOCATED;
-extern std::unordered_map<uint64_t, size_t> PTR_TO_ALLOC;
-inline void *MALLOC(size_t size) {
+void *MALLOC(size_t size) {
   void *ptr = malloc(size);
 #ifdef DEBUG_MODE
   MEM_ALLOCATED += size;
@@ -23,7 +15,7 @@ inline void *MALLOC(size_t size) {
   return ptr;
 }
 
-inline void FREE(void *ptr) {
+void FREE(void *ptr) {
 #ifdef DEBUG_MODE
   size_t size = PTR_TO_ALLOC[(uint64_t)ptr];
   MEM_ALLOCATED -= size;
@@ -33,8 +25,6 @@ inline void FREE(void *ptr) {
   free(ptr);
 }
 
-inline void MEM_PRINT() {
+void MEM_PRINT() {
   utility::log_helper_function("(MEM_PRINT) current memory: " + std::to_string(MEM_ALLOCATED), false);
 }
-
-#endif

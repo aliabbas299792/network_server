@@ -1,18 +1,5 @@
-#include "debug_mem_ops.hpp"
-#include "http_request.h"
-#include "http_response.h"
-#include "network_server.hpp"
-#include "subprojects/event_manager/event_manager.hpp"
-#include <chrono>
-#include <cstdio>
-#include <fcntl.h>
-#include <fstream>
-#include <ratio>
-#include <thread>
-#include <unordered_map>
-
-std::unordered_map<uint64_t, size_t> PTR_TO_ALLOC{};
-size_t MEM_ALLOCATED{};
+#include "../header/http_response.h"
+#include "../header/network_server.hpp"
 
 constexpr int port = 4000;
 
@@ -72,7 +59,7 @@ void app_methods::http_close_callback(int client_num) {
 }
 
 int main() {
-  std::ifstream file("test1.jpeg", std::ios::binary | std::ios::ate);
+  std::ifstream file("test2.jpeg", std::ios::binary | std::ios::ate);
   auto size = file.tellg();
   file.seekg(0, std::ios::beg);
 

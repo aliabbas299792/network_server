@@ -1,6 +1,6 @@
 #include "metadata.hpp"
 
-#include "subprojects/event_manager/event_manager.hpp"
+#include "../subprojects/event_manager/event_manager.hpp"
 
 namespace utility {
 

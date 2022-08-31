@@ -1,10 +1,5 @@
-#include "metadata.hpp"
-#include "network_server.hpp"
-#include "subprojects/event_manager/header/event_manager_metadata.hpp"
-#include <cstring>
-#include <sys/socket.h>
-
-#include "debug_mem_ops.hpp"
+#include "../header/debug_mem_ops.hpp"
+#include "../header/network_server.hpp"
 
 void network_server::accept_callback(int listener_fd, sockaddr_storage *user_data, socklen_t size,
                                      uint64_t pfd, int op_res_num, uint64_t additional_info) {

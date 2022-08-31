@@ -1,9 +1,9 @@
 #ifndef NETWORK_SERVER
 #define NETWORK_SERVER
 
+#include "../subprojects/event_manager/event_manager.hpp"
 #include "http_request.h"
 #include "metadata.hpp"
-#include "subprojects/event_manager/event_manager.hpp"
 #include "utility.hpp"
 #include <cstring>
 #include <set>

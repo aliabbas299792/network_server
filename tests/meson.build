@@ -1,0 +1,1 @@
+executable('network_server_tests', 'tests.cpp', dependencies: [libnetwork_server_dep, libevent_manager_dep])

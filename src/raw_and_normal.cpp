@@ -1,4 +1,4 @@
-#include "network_server.hpp"
+#include "../header/network_server.hpp"
 
 // same as normal read but carries info about what connection type
 int network_server::raw_read(int pfd, buff_data data) {

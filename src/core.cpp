@@ -1,8 +1,5 @@
-#include "debug_mem_ops.hpp"
-#include "network_server.hpp"
-#include "subprojects/event_manager/header/event_manager_metadata.hpp"
-#include <cstring>
-#include <sys/socket.h>
+#include "../header/debug_mem_ops.hpp"
+#include "../header/network_server.hpp"
 
 network_server::network_server(int port, event_manager *ev, application_methods *callbacks) {
   if (callbacks == nullptr) {
