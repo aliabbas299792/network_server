@@ -14,3 +14,8 @@ This is just a thought for later.
 - add in support for POSTing large amounts of data
 
 - add in TLS support
+
+# Bugs
+- Memory leak due to user stuff, maybe put iovec/buffer stuff in close callback to allow user to free the stuff
+- Look into SIGPIPE stuff
+- Submit randomly failed, I was unable to reproduce this (it was around the "Submit accept normal resubmit failed" call)

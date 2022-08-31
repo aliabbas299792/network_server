@@ -1,7 +1,10 @@
 #include "../header/debug_mem_ops.hpp"
 #include "network_server.hpp"
+#include <signal.h>
 
 network_server::network_server(int port, event_manager *ev, application_methods *callbacks) {
+  signal(SIGPIPE, SIG_IGN); // signal handler for when a connection is closed while writing
+
   if (callbacks == nullptr) {
     std::string error = "Application methods callbacks must be set (" + std::string(__FUNCTION__);
     error += ": " + std::to_string(__LINE__);
@@ -127,12 +130,15 @@ void network_server::application_close_callback(int pfd, int task_id) {
     break;
   case WEBSOCKET_READ:
   case WEBSOCKET_WRITE:
+  case WEBSOCKET_WRITEV:
   case WEBSOCKET_CLOSE:
     callbacks->websocket_close_callback(pfd);
     break;
   case RAW_READ:
   case RAW_WRITE:
+  case RAW_WRITEV:
   case RAW_CLOSE:
+  case RAW_READV:
     callbacks->raw_close_callback(pfd);
     break;
   case EVENT_READ: // don't expect to deal with this here
