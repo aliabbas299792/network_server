@@ -198,6 +198,7 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
         break;
       }
 
+      FREE(task.iovs); // writev allocates some memory in get_task(...)
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
       // there was some other error
@@ -281,6 +282,8 @@ void network_server::readv_callback(processed_data_vecs read_metadata, uint64_t 
       ev->shutdown_and_close_normally(pfd);
       // there was some other error
       application_close_callback(pfd, task_id);
+
+      FREE(task.iovs); // readv allocates some memory in get_task(...)
       return;
     }
     }
