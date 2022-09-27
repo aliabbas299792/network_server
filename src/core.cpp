@@ -77,7 +77,10 @@ int network_server::get_task(operation_type type, struct iovec *iovecs, size_t n
   return id;
 }
 
-void network_server::free_task(int task_id) { task_freed_idxs.insert(task_id); }
+void network_server::free_task(int task_id) {
+  task_data[task_id] = {};
+  task_freed_idxs.insert(task_id);
+}
 
 void network_server::close_pfd_gracefully(int pfd, uint64_t task_id) {
   const auto &pfd_info = ev->get_pfd_data(pfd);
@@ -86,14 +89,18 @@ void network_server::close_pfd_gracefully(int pfd, uint64_t task_id) {
   switch (task_info.op_type) {
   case operation_type::NETWORK_READ:
   case operation_type::HTTP_WRITE:
+  case operation_type::HTTP_WRITEV:
     task_info.op_type = operation_type::HTTP_CLOSE;
     break;
   case operation_type::WEBSOCKET_READ:
   case operation_type::WEBSOCKET_WRITE:
+  case operation_type::WEBSOCKET_WRITEV:
     task_info.op_type = operation_type::WEBSOCKET_CLOSE;
     break;
   case operation_type::RAW_READ:
   case operation_type::RAW_WRITE:
+  case operation_type::RAW_READV:
+  case operation_type::RAW_WRITEV:
     task_info.op_type = operation_type::RAW_CLOSE;
     break;
   default:

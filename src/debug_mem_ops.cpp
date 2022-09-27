@@ -26,5 +26,7 @@ void FREE(void *ptr) {
 }
 
 void MEM_PRINT() {
+#ifdef DEBUG_MODE
   utility::log_helper_function("(MEM_PRINT) current memory: " + std::to_string(MEM_ALLOCATED), false);
+#endif
 }

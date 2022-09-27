@@ -119,6 +119,9 @@ void http_request::http_header_parser(char *token_str) {
 }
 
 http_request::http_request(char *buff) {
+  if (!buff)
+    return;
+
   char *buff_ptr = buff;
   char *save_ptr;
   char *tok_ptr = strtok_r(buff_ptr, "\r\n", &save_ptr);

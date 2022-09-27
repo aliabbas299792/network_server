@@ -60,7 +60,6 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
 }
 
 void network_server::read_callback(processed_data read_metadata, uint64_t pfd, uint64_t task_id) {
-
   if (read_metadata.op_res_num < 0) {
     switch (errno) {
     // for these errors, just try again, otherwise fail
@@ -77,6 +76,7 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
         data.buffer = read_metadata.buff;
         data.size = task_data[task_id].progress;
         callbacks->raw_read_callback(data, pfd);
+        break;
       }
       case operation_type::NETWORK_READ: {
         network_read_procedure(pfd, {}, true); // failed the request
@@ -99,38 +99,39 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
 
   if (read_metadata.op_res_num == 0) { // read was 0, socket connection closed
     auto &task = task_data[task_id];
-    // if shutdown was called already, and close pfd call fails
-    // or if shutdown not called, but shutdown call fails
-    // or if it isn't a network socket
-    // then shutdown normally and call the close callback
-    if ((ev->get_pfd_data(pfd).type != fd_types::NETWORK) || (task.shutdown && ev->close_pfd(pfd) < 0) ||
-        (!task.shutdown && ev->submit_shutdown(pfd, SHUT_RDWR) < 0)) {
-      ev->shutdown_and_close_normally(pfd);
-      application_close_callback(pfd, task_id);
-    } else {
-      task.last_read_zero = true; // so we can call close in shutdown callback instead
-    }
 
     // only network sockets had network server allocated buffers
     if (task.op_type == operation_type::NETWORK_READ) {
       FREE(task.buff);
     }
 
+    // if shutdown was called already, and close pfd call fails
+    // or if shutdown not called, but shutdown call fails
+    // or if it isn't a network socket
+    // then shutdown normally and call the close callback
+    if ((ev->get_pfd_data(pfd).type != fd_types::NETWORK) || (task.shutdown && ev->close_pfd(pfd) < 0) ||
+        (!task.shutdown && ev->submit_shutdown(pfd, SHUT_RDWR, task_id) < 0)) {
+      ev->shutdown_and_close_normally(pfd);
+      application_close_callback(pfd, task_id);
+    } else {
+      task.last_read_zero = true; // so we can call close in shutdown callback instead
+      ev->submit_shutdown(pfd, SHUT_RDWR, task_id);
+      // returns here since if we free the task, the marker task.last_read_zer = true
+      // disappears with it
+      return;
+    }
+
     free_task(task_id);
     return;
-  } else {
-    task_data[task_id].last_read_zero = false;
   }
 
   buff_data data{};
-
+  auto &task = task_data[task_id];
   // network reads will read once up to READ_SIZE bytes, whereas application reads read as much as they
   // can before returning what was requested
-  switch (task_data[task_id].op_type) {
+  switch (task.op_type) {
   case operation_type::RAW_READ: {
-    auto &task = task_data[task_id];
     auto total_progress = task.progress + read_metadata.op_res_num;
-
     if (total_progress < task.buff_length) {
       ev->submit_read(pfd, &task.buff[total_progress], task.buff_length - total_progress, task_id);
       task.progress = total_progress;
@@ -198,7 +199,7 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
         break;
       }
 
-      FREE(task.iovs); // writev allocates some memory in get_task(...)
+      FREE(task.buff); // writev allocates some memory in get_task(...)
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
       // there was some other error
@@ -217,6 +218,7 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
     switch (task.op_type) {
     case HTTP_WRITEV:
       callbacks->http_writev_callback(task.iovs, task.num_iovecs, pfd);
+      close_pfd_gracefully(pfd, task_id);
       break;
     case RAW_WRITEV:
       callbacks->raw_writev_callback(task.iovs, task.num_iovecs, pfd);
@@ -228,8 +230,7 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
       break;
     }
 
-    close_pfd_gracefully(pfd, task_id);
-    FREE(task.iovs); // writev allocates some memory in get_task(...)
+    FREE(task.buff); // writev allocates some memory in get_task(...)
     return;
   }
 
