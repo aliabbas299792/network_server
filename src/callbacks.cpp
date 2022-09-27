@@ -1,14 +1,19 @@
 #include "../header/debug_mem_ops.hpp"
 #include "network_server.hpp"
 
-void network_server::accept_callback(int listener_fd, sockaddr_storage *user_data, socklen_t size,
+void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_data, socklen_t size,
                                      uint64_t pfd, int op_res_num, uint64_t additional_info) {
+  ev->submit_all_queued_sqes();
+  // clears the queue, so previous queued stuff doesn't interfere with the accept stuff
+
   if (op_res_num < 0) {
     switch (errno) {
     // for these errors, just try again, otherwise fail
     case ECONNABORTED:
     case EINTR:
       if (ev->submit_accept(pfd, additional_info) < 0) {
+        std::cerr << "\t\teintr failed: (code, pfd, fd, id): (" << op_res_num << ", " << pfd << ", "
+                  << ev->get_pfd_data(pfd).fd << ", " << ev->get_pfd_data(pfd).id << ")\n";
         utility::fatal_error("Accept EINTR resubmit failed");
       }
       break;
@@ -35,16 +40,21 @@ void network_server::accept_callback(int listener_fd, sockaddr_storage *user_dat
   task.buff_length = READ_SIZE;
   task.op_type = operation_type::NETWORK_READ; // don't know what it is yet
 
-  // queues up the read, passes the task id as additional info
-  if (ev->queue_read(pfd, task.buff, task.buff_length, user_task_id) < 0) {
+  // submits the read, passes the task id as additional info
+  // doesn't use queue_read because if this read fails, then submit will fail too
+  if (ev->submit_read(pfd, task.buff, task.buff_length, user_task_id) < 0) {
     // if the queueing operation didn't work, end this connection
     FREE(buff);
     free_task(user_task_id);
     ev->shutdown_and_close_normally(pfd);
+    std::cerr << "\tinitial read failed: (errno, pfd, fd, id): (" << errno << ", " << listener_pfd << ", "
+              << ev->get_pfd_data(listener_pfd).fd << ", " << ev->get_pfd_data(listener_pfd).id << ")\n";
   }
 
   // carry on listening, submits everything in the queue with it, not using task_id for this
-  if (ev->submit_accept(listener_fd) < 0) {
+  if (ev->submit_accept(listener_pfd) < 0) {
+    std::cerr << "\t\tsubmit failed: (errno, pfd, fd, id): (" << errno << ", " << listener_pfd << ", "
+              << ev->get_pfd_data(listener_pfd).fd << ", " << ev->get_pfd_data(listener_pfd).id << ")\n";
     utility::fatal_error("Submit accept normal resubmit failed");
   }
 }
