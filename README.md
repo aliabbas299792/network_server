@@ -1,26 +1,5 @@
 # Network Server
-The network server should be able to load in the `event_manager` library dynamically, instantiate it, start it, and replace an older version with a newer version.
-Similarly the application stuff should be able to do the same for the `network_server`.
-This is just a thought for later.
-
-# Todo
-- websocket negotiation
-- websocket unpacking frames
-- websocket packing frames
-- websocket broadcasts, add another task_type which is basically reference counter
-  - and find out how to constrain ranges container to containers storing ints
-
-- test accept_bytes stuff with music/video
-- add in support for POSTing large amounts of data
-
-- add in TLS support
-
-# Good practice
-- Unless a bunch of operations MUST happen at once (i.e if a single failure means all of them should fail), use the `submit_*` functions rather than `queue_*` and then `submit_*`
-
-# Bugs
-- Memory leak due to user stuff, maybe put iovec/buffer stuff in close callback to allow user to free the stuff
-- Look into SIGPIPE stuff
+A simple library which can be used to write a web server.
 
 # Usage
 - For all methods with `bool failed_req = false` as the final parameter, this basically indicates this event failed, so use this to handle clean up operations
@@ -46,55 +25,64 @@ This is just a thought for later.
 - `websocket_broadcast` to broadcast to all `client_num`s in the passed container
 ## Callbacks
 ### Accept and event callbacks
-`void accept_callback(int client_num)`:
-- Called when a new client is accepted
-
-`void event_trigger_callback(int client_num, uint64_t additional_info)`:
-- Called when a custom event is triggered, the second parameter contains information you passed when you called `eventfd_prepare(...)`
-
-`void event_error_close_callback(int client_num, uint64_t additional_info)`:
-- Called in the off chance there is an error with after you called `eventfd_prepare(...)`, so do any cleanup required here
+- `void accept_callback(int client_num)`:
+  - Called when a new client is accepted
+- `void event_trigger_callback(int client_num, uint64_t additional_info)`:
+  - Called when a custom event is triggered, the second parameter contains information you passed when you called `eventfd_prepare(...)`
+- `void event_error_close_callback(int client_num, uint64_t additional_info)`:
+  - Called in the off chance there is an error with after you called `eventfd_prepare(...)`, so do any cleanup required here
 
 ### Raw callbacks
 - Raw, as in, not HTTP or websocket opened by the network server, they could still be a network socket of some sort, but you have to manage it
-
-`void raw_read_callback(buff_data data, int client_num, bool failed_req = false)`:
-- Called after something has been read from a client
-
-`void raw_readv_callback(struct iovec *data, size_t num_iovecs, int client_num, bool failed_req = false)`:
-- Called after something was read using `readv`, `iovecs` contain the required data
-
-`void raw_write_callback(buff_data data, int client_num, bool failed_req = false)`:
-- Called when something is written
-
-`void raw_writev_callback(struct iovec *data, size_t num_iovecs, int client_num, bool failed_req = false)`:
-- Called when something is written using `writev`
-
-`void raw_close_callback(int client_num)`:
-- Called when the client is closed, deal with cleanup
+- `void raw_read_callback(buff_data data, int client_num, bool failed_req = false)`:
+  - Called after something has been read from a client
+- `void raw_readv_callback(struct iovec *data, size_t num_iovecs, int client_num, bool failed_req = false)`:
+  - Called after something was read using `readv`, `iovecs` contain the required data
+- `void raw_write_callback(buff_data data, int client_num, bool failed_req = false)`:
+  - Called when something is written
+- `void raw_writev_callback(struct iovec *data, size_t num_iovecs, int client_num, bool failed_req = false)`:
+  - Called when something is written using `writev`
+- `void raw_close_callback(int client_num)`:
+  - Called when the client is closed, deal with cleanup
 
 ### Websocket callbacks
-`void websocket_read_callback(buff_data data, int client_num, bool failed_req = false)`:
-- Something read from a websocket
-
-`void websocket_write_callback(buff_data data, int client_num, bool failed_req = false)`:
-- Something was written to a websocket
-
-`void websocket_writev_callback(struct iovec *data, size_t num_iovecs, int client_num, bool failed_req = false)`:
-- Something was written to a websocket using `writev`
-
-`void websocket_close_callback(int client_num)`:
-- A websocket was closed, deal with cleanup
+- `void websocket_read_callback(buff_data data, int client_num, bool failed_req = false)`:
+  - Something read from a websocket
+- `void websocket_write_callback(buff_data data, int client_num, bool failed_req = false)`:
+  - Something was written to a websocket
+- `void websocket_writev_callback(struct iovec *data, size_t num_iovecs, int client_num, bool failed_req = false)`:
+  - Something was written to a websocket using `writev`
+- `void websocket_close_callback(int client_num)`:
+  - A websocket was closed, deal with cleanup
 
 ### HTTP callbacks
-`void http_read_callback(http_request req, int client_num, bool failed_req = false)`:
-- Something was read from a HTTP connected client
-
-`void http_write_callback(buff_data data, int client_num, bool failed_req = false)`:
-- Something was written to a HTTP connected client (connection will be closed after this)
-
-`void http_writev_callback(struct iovec *data, size_t num_iovecs, int client_num, bool failed_req = false)`:
+- `void http_read_callback(http_request req, int client_num, bool failed_req = false)`:
+  - Something was read from a HTTP connected client
+- `void http_write_callback(buff_data data, int client_num, bool failed_req = false)`:
+  - Something was written to a HTTP connected client (connection will be closed after this)
+- `void http_writev_callback(struct iovec *data, size_t num_iovecs, int client_num, bool failed_req = false)`:
   - Something was written using `writev` to a HTTP client
-
-`void http_close_callback(int client_num)`:
+- `void http_close_callback(int client_num)`:
   - The client was closed, deal with cleanup
+
+# Todo
+- The network server should be able to load in the `event_manager` library dynamically, instantiate it, start it, and replace an older version with a newer version.
+- Similarly the application stuff should be able to do the same for the `network_server`.
+  - This is just a thought for later.
+- websocket negotiation
+- websocket unpacking frames
+- websocket packing frames
+- websocket broadcasts, add another task_type which is basically reference counter
+  - and find out how to constrain ranges container to containers storing ints
+
+- test accept_bytes stuff with music/video
+- add in support for POSTing large amounts of data
+
+- add in TLS support
+
+# Good practice
+- Unless a bunch of operations MUST happen at once (i.e if a single failure means all of them should fail), use the `submit_*` functions rather than `queue_*` and then `submit_*`
+
+# Bugs
+- Memory leak due to user stuff, maybe put iovec/buffer stuff in close callback to allow user to free the stuff
+- Look into SIGPIPE stuff
