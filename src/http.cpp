@@ -1,7 +1,7 @@
 #include "../header/http_response.h"
 #include "network_server.hpp"
 
-bool network_server::http_response_method(int pfd, buff_data data) {
+bool network_server::http_response_method(int pfd, buff_data data, bool failed_req) {
   http_request req{reinterpret_cast<char *>(data.buffer)};
 
   if (req.valid_req) {

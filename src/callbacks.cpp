@@ -71,6 +71,20 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
       }
 
     default: {
+      switch (task_data[task_id].op_type) {
+      case operation_type::RAW_READ: {
+        buff_data data{};
+        data.buffer = read_metadata.buff;
+        data.size = task_data[task_id].progress;
+        callbacks->raw_read_callback(data, pfd);
+      }
+      case operation_type::NETWORK_READ: {
+        network_read_procedure(pfd, {}, true); // failed the request
+      }
+      default:
+        break;
+      }
+
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
       // there was some other error, clean up resources, call correct close callback
@@ -110,8 +124,8 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
 
   buff_data data{};
 
-  // network reads will read once up to READ_SIZE bytes, whereas application reads read as much as they can
-  // before returning what was requested
+  // network reads will read once up to READ_SIZE bytes, whereas application reads read as much as they
+  // can before returning what was requested
   switch (task_data[task_id].op_type) {
   case operation_type::RAW_READ: {
     auto &task = task_data[task_id];
@@ -127,6 +141,8 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
 
       free_task(task_id); // task is completed so task id is freed (we assume user will free the buffer)
     }
+
+    callbacks->raw_read_callback(data, pfd);
     break;
   }
   case operation_type::NETWORK_READ: {
@@ -168,6 +184,20 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
       ev->submit_writev(pfd, write_metadata.iovs, write_metadata.num_vecs, task_id);
       break;
     default: {
+      switch (task.op_type) {
+      case HTTP_WRITEV:
+        callbacks->http_writev_callback(task.iovs, task.num_iovecs, pfd, true);
+        break;
+      case RAW_WRITEV:
+        callbacks->raw_writev_callback(task.iovs, task.num_iovecs, pfd, true);
+        break;
+      case WEBSOCKET_WRITEV:
+        callbacks->websocket_writev_callback(task.iovs, task.num_iovecs, pfd, true);
+        break;
+      default:
+        break;
+      }
+
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
       // there was some other error
@@ -198,7 +228,7 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
     }
 
     close_pfd_gracefully(pfd, task_id);
-    FREE(task.iovs); // writev allocates some memory
+    FREE(task.iovs); // writev allocates some memory in get_task(...)
     return;
   }
 
@@ -246,6 +276,7 @@ void network_server::readv_callback(processed_data_vecs read_metadata, uint64_t 
       ev->submit_readv(pfd, read_metadata.iovs, read_metadata.num_vecs, task_id);
       break;
     default: {
+      callbacks->raw_readv_callback(task.iovs, task.num_iovecs, pfd, true);
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
       // there was some other error
@@ -266,7 +297,7 @@ void network_server::readv_callback(processed_data_vecs read_metadata, uint64_t 
   if (total_progress >= task.buff_length) {
     callbacks->raw_readv_callback(task.iovs, task.num_iovecs, pfd);
     close_pfd_gracefully(pfd, task_id);
-    FREE(task.iovs); // writev allocates some memory
+    FREE(task.iovs); // readv allocates some memory in get_task(...)
     return;
   }
 
@@ -314,6 +345,22 @@ void network_server::write_callback(processed_data write_metadata, uint64_t pfd,
       ev->submit_write(pfd, write_metadata.buff, write_metadata.length, task_id);
       break;
     default: {
+      buff_data data{task.progress, task.buff};
+      switch (task.op_type) {
+      case HTTP_WRITE:
+        callbacks->http_write_callback(data, pfd, true);
+        close_pfd_gracefully(pfd, task_id);
+        break;
+      case RAW_WRITE:
+        callbacks->raw_write_callback(data, pfd, true);
+        break;
+      case WEBSOCKET_WRITE:
+        callbacks->websocket_write_callback(data, pfd, true);
+        break;
+      default:
+        break;
+      }
+
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
       // there was some other error

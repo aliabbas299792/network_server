@@ -67,20 +67,24 @@ public:
   virtual void accept_callback(int client_num) {}
   virtual void event_trigger_callback(int client_num, uint64_t additional_info) {}
 
-  virtual void raw_read_callback(buff_data data, int client_num) {}
-  virtual void raw_readv_callback(struct iovec *data, size_t num_iovecs, int client_num) {}
-  virtual void raw_write_callback(buff_data data, int client_num) {}
-  virtual void raw_writev_callback(struct iovec *data, size_t num_iovecs, int client_num) {}
+  virtual void raw_read_callback(buff_data data, int client_num, bool failed_req = false) {}
+  virtual void raw_readv_callback(struct iovec *data, size_t num_iovecs, int client_num,
+                                  bool failed_req = false) {}
+  virtual void raw_write_callback(buff_data data, int client_num, bool failed_req = false) {}
+  virtual void raw_writev_callback(struct iovec *data, size_t num_iovecs, int client_num,
+                                   bool failed_req = false) {}
   virtual void raw_close_callback(int client_num) {}
 
-  virtual void websocket_read_callback(buff_data data, int client_num) {}
-  virtual void websocket_write_callback(buff_data data, int client_num) {}
-  virtual void websocket_writev_callback(struct iovec *data, size_t num_iovecs, int client_num) {}
+  virtual void websocket_read_callback(buff_data data, int client_num, bool failed_req = false) {}
+  virtual void websocket_write_callback(buff_data data, int client_num, bool failed_req = false) {}
+  virtual void websocket_writev_callback(struct iovec *data, size_t num_iovecs, int client_num,
+                                         bool failed_req = false) {}
   virtual void websocket_close_callback(int client_num) {}
 
-  virtual void http_read_callback(http_request req, int client_num) {}
-  virtual void http_write_callback(buff_data data, int client_num) {}
-  virtual void http_writev_callback(struct iovec *data, size_t num_iovecs, int client_num) {}
+  virtual void http_read_callback(http_request req, int client_num, bool failed_req = false) {}
+  virtual void http_write_callback(buff_data data, int client_num, bool failed_req = false) {}
+  virtual void http_writev_callback(struct iovec *data, size_t num_iovecs, int client_num,
+                                    bool failed_req = false) {}
   virtual void http_close_callback(int client_num) {}
 
   // there is no way to async close an eventfd, if this is triggered it is due
@@ -126,10 +130,10 @@ private:
   void application_close_callback(int pfd, int task_id);
   void close_pfd_gracefully(int pfd, uint64_t task_id = -1); // will call shutdown if needed
 
-  //
-  bool http_response_method(int pfd, buff_data data);
-  bool websocket_frame_response_method(int pfd, buff_data data);
-  void network_read_procedure(int pfd, buff_data data);
+  // helper methods
+  bool http_response_method(int pfd, buff_data data = {}, bool failed_req = false);
+  bool websocket_frame_response_method(int pfd, buff_data data = {}, bool failed_req = false);
+  void network_read_procedure(int pfd, buff_data data = {}, bool failed_req = false);
 
 public:
   network_server(int port, event_manager *ev, application_methods *callbacks);

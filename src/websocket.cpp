@@ -1,6 +1,8 @@
 #include "network_server.hpp"
 
-bool network_server::websocket_frame_response_method(int pfd, buff_data data) { return false; }
+bool network_server::websocket_frame_response_method(int pfd, buff_data data, bool failed_req) {
+  return false;
+}
 
 template <int_range T> int network_server::websocket_broadcast(const T &container, buff_data data) {
   for (const auto pfd : container) {
