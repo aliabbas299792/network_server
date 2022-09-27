@@ -140,30 +140,30 @@ public:
 
   // don't need HTTP or WEBSOCKET read because
   // they are autosubmitted
-  template <int_range T> int websocket_broadcast(const T &container, buff_data data);
-  int websocket_write(int pfd, buff_data data);
-  int websocket_writev(int pfd, struct iovec *iovs, size_t num_iovecs);
-  int websocket_close(int pfd);
+  template <int_range T> int websocket_broadcast(const T &client_num_container, buff_data data);
+  int websocket_write(int client_num, buff_data data);
+  int websocket_writev(int client_num, struct iovec *iovs, size_t num_iovecs);
+  int websocket_close(int client_num);
 
   // read not reading since this is auto submitted
-  int http_writev(int pfd, struct iovec *iovs, size_t num_iovecs);
-  int http_write(int pfd, char *buff, size_t buff_length);
-  int http_close(int pfd);
+  int http_writev(int client_num, struct iovec *iovs, size_t num_iovecs);
+  int http_write(int client_num, char *buff, size_t buff_length);
+  int http_close(int client_num);
 
   // same as normal read but carries info about what connection type
-  int raw_read(int pfd, buff_data data);
-  int raw_readv(int pfd, struct iovec *iovs, size_t num_iovecs);
-  int raw_write(int pfd, buff_data data);
-  int raw_writev(int pfd, struct iovec *iovs, size_t num_iovecs);
-  int raw_close(int pfd);
+  int raw_read(int client_num, buff_data data);
+  int raw_readv(int client_num, struct iovec *iovs, size_t num_iovecs);
+  int raw_write(int client_num, buff_data data);
+  int raw_writev(int client_num, struct iovec *iovs, size_t num_iovecs);
+  int raw_close(int client_num);
 
   int eventfd_open();
-  int eventfd_trigger(int pfd);
-  int eventfd_prepare(int pfd, uint64_t additional_info);
+  int eventfd_trigger(int client_num);
+  int eventfd_prepare(int client_num, uint64_t additional_info);
 
   int local_open(const char *pathname, int flags);
   int local_stat(const char *pathname, struct stat *buff);
-  int local_fstat(int pfd, struct stat *buff);
+  int local_fstat(int client_num, struct stat *buff);
   int local_unlink(const char *pathname);
 
   void start();
