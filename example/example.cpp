@@ -42,7 +42,12 @@ void app_methods::raw_read_callback(buff_data data, int client_num, bool failed_
   }
   auto &jobdata = file_num_to_request_client_num[client_num];
 
-  http_response resp{http_resp_codes::RESP_200_OK, http_ver::HTTP_10, false, "text/html", data.size};
+  std::string type = "text/html";
+  if (jobdata.filepath.ends_with(".mp4")) {
+    type = "video/mp4";
+  }
+
+  http_response resp{http_resp_codes::RESP_200_OK, http_ver::HTTP_10, false, type, data.size};
   auto resp_data = resp.allocate_buffer();
   auto content_data = data.buffer;
 
@@ -65,7 +70,7 @@ void app_methods::http_write_callback(buff_data data, int client_num, bool faile
 
 void app_methods::http_writev_callback(struct iovec *data, size_t num_iovecs, int client_num,
                                        bool failed_req) {
-  std::cout << "wrtiev happened\n";
+  std::cout << "wrtiev happened, data len: " << data[1].iov_len << "\n";
 
   FREE(data[0].iov_base);
   FREE(data[1].iov_base);

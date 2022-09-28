@@ -1,5 +1,7 @@
 #include "../header/debug_mem_ops.hpp"
+#include "header/metadata.hpp"
 #include "network_server.hpp"
+#include <cstdint>
 
 void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_data, socklen_t size,
                                      uint64_t pfd, int op_res_num, uint64_t additional_info) {
@@ -32,13 +34,9 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
   }
 
   // also read from the user
-  auto user_task_id = get_task();
-  auto &task = task_data[user_task_id];
-
   auto buff = (uint8_t *)MALLOC(READ_SIZE);
-  task.buff = buff;
-  task.buff_length = READ_SIZE;
-  task.op_type = operation_type::NETWORK_READ; // don't know what it is yet
+  auto user_task_id = get_task(operation_type::NETWORK_READ, buff, READ_SIZE);
+  auto &task = task_data[user_task_id];
 
   // submits the read, passes the task id as additional info
   // doesn't use queue_read because if this read fails, then submit will fail too
@@ -52,7 +50,7 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
   }
 
   // carry on listening, submits everything in the queue with it, not using task_id for this
-  if (ev->submit_accept(listener_pfd) < 0) {
+  if (ev->submit_accept(listener_pfd, additional_info) < 0) {
     std::cerr << "\t\tsubmit failed: (errno, pfd, fd, id): (" << errno << ", " << listener_pfd << ", "
               << ev->get_pfd_data(listener_pfd).fd << ", " << ev->get_pfd_data(listener_pfd).id << ")\n";
     utility::fatal_error("Submit accept normal resubmit failed");
@@ -85,12 +83,16 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
         break;
       }
 
+      auto &task = task_data[task_id];
+      if (task.op_type == operation_type::NETWORK_READ) {
+        FREE(task.buff);
+      }
+
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
       // there was some other error, clean up resources, call correct close callback
+      std::cout << "94 application_close_callback " << task_id << "\n";
       application_close_callback(pfd, task_id);
-
-      free_task(task_id);
     }
     }
 
@@ -99,7 +101,6 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
 
   if (read_metadata.op_res_num == 0) { // read was 0, socket connection closed
     auto &task = task_data[task_id];
-
     // only network sockets had network server allocated buffers
     if (task.op_type == operation_type::NETWORK_READ) {
       FREE(task.buff);
@@ -109,9 +110,12 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
     // or if shutdown not called, but shutdown call fails
     // or if it isn't a network socket
     // then shutdown normally and call the close callback
-    if ((ev->get_pfd_data(pfd).type != fd_types::NETWORK) || (task.shutdown && ev->close_pfd(pfd) < 0) ||
+    std::cout << "some bullshit happening " << task_id << "\n";
+    if ((ev->get_pfd_data(pfd).type != fd_types::NETWORK) ||
+        (task.shutdown && ev->close_pfd(pfd, task_id) < 0) ||
         (!task.shutdown && ev->submit_shutdown(pfd, SHUT_RDWR, task_id) < 0)) {
       ev->shutdown_and_close_normally(pfd);
+      std::cout << "116 application_close_callback " << task_id << "\n";
       application_close_callback(pfd, task_id);
     } else {
       task.last_read_zero = true; // so we can call close in shutdown callback instead
@@ -169,6 +173,7 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
   default: {
     // shouldn't get here usually, but this is in case it does
     ev->shutdown_and_close_normally(pfd);
+    std::cout << "174 application_close_callback " << task_id << "\n";
     application_close_callback(pfd, task_id);
     free_task(task_id);
   }
@@ -204,10 +209,13 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
       // there was some other error
+      std::cout << "210 application_close_callback " << task_id << "\n";
       application_close_callback(pfd, task_id);
       return;
     }
     }
+
+    return;
   }
 
   auto total_progress = task.progress + write_metadata.op_res_num;
@@ -218,7 +226,7 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
     switch (task.op_type) {
     case HTTP_WRITEV:
       callbacks->http_writev_callback(original_iovs_ptr, task.num_iovecs, pfd);
-      close_pfd_gracefully(pfd, task_id);
+      close_pfd_gracefully(pfd, task_id); // task_id freed here
       break;
     case RAW_WRITEV:
       callbacks->raw_writev_callback(original_iovs_ptr, task.num_iovecs, pfd);
@@ -235,21 +243,20 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
     return;
   }
 
-  auto buff_iovecs = task.iovs;
   // so all buffer offsets/lengths are reset
-  std::memset(buff_iovecs, 0, sizeof(iovec) * task.num_iovecs);
+  std::memset(task.iovs, 0, sizeof(iovec) * task.num_iovecs);
 
   for (size_t i = 0; i < task.num_iovecs; i++) {
     if (written + original_iovs_ptr[i].iov_len > total_progress) {
       auto offset_in_block = total_progress - written;
 
       // set first buffer to correct offset
-      buff_iovecs[0].iov_base = &reinterpret_cast<uint8_t *>(original_iovs_ptr[i].iov_base)[offset_in_block];
-      buff_iovecs[0].iov_len = original_iovs_ptr[i].iov_len - offset_in_block;
+      task.iovs[0].iov_base = &reinterpret_cast<uint8_t *>(original_iovs_ptr[i].iov_base)[offset_in_block];
+      task.iovs[0].iov_len = original_iovs_ptr[i].iov_len - offset_in_block;
       // set remaining buffers to rest of the iovecs
       for (size_t j = 1; j + i < task.num_iovecs; j++) {
-        buff_iovecs[j].iov_base = original_iovs_ptr[i + j].iov_base;
-        buff_iovecs[j].iov_len = original_iovs_ptr[i + j].iov_len;
+        task.iovs[j].iov_base = original_iovs_ptr[i + j].iov_base;
+        task.iovs[j].iov_len = original_iovs_ptr[i + j].iov_len;
       }
       break;
     } else if (written + original_iovs_ptr[i].iov_len == total_progress) {
@@ -257,8 +264,8 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
       // i++ because this entire iovec has been written, so begin writing from next one
       i++;
       for (int j = 0; j + i < task.num_iovecs; j++) {
-        buff_iovecs[j].iov_base = original_iovs_ptr[i + j].iov_base;
-        buff_iovecs[j].iov_len = original_iovs_ptr[i + j].iov_len;
+        task.iovs[j].iov_base = original_iovs_ptr[i + j].iov_base;
+        task.iovs[j].iov_len = original_iovs_ptr[i + j].iov_len;
       }
       break;
     }
@@ -266,8 +273,7 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
   }
 
   task.progress += write_metadata.op_res_num;
-
-  ev->submit_writev(pfd, buff_iovecs, task.num_iovecs, task_id);
+  ev->submit_writev(pfd, task.iovs, task.num_iovecs, task_id);
 }
 
 void network_server::readv_callback(processed_data_vecs read_metadata, uint64_t pfd, uint64_t task_id) {
@@ -285,12 +291,15 @@ void network_server::readv_callback(processed_data_vecs read_metadata, uint64_t 
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
       // there was some other error
+      std::cout << "290 application_close_callback " << task_id << "\n";
       application_close_callback(pfd, task_id);
 
       FREE(task.iovs); // readv allocates some memory in get_task(...)
       return;
     }
     }
+
+    return;
   }
 
   // most this code is nearly identical to stuff for writev, consider refactoring
@@ -298,30 +307,29 @@ void network_server::readv_callback(processed_data_vecs read_metadata, uint64_t 
 
   auto total_progress = task.progress + read_metadata.op_res_num;
 
-  auto buff_iovecs = task.iovs;
   size_t read_so_far{};
 
   if (total_progress >= task.buff_length) {
     callbacks->raw_readv_callback(original_iovs_ptr, task.num_iovecs, pfd);
-    close_pfd_gracefully(pfd, task_id);
-    FREE(task.iovs); // readv allocates some memory in get_task(...)
+    close_pfd_gracefully(pfd, task_id); // task_id freed here
+    FREE(task.iovs);                    // readv allocates some memory in get_task(...)
     return;
   }
 
   // so all buffer offsets/lengths are reset
-  std::memset(buff_iovecs, 0, sizeof(iovec) * task.num_iovecs);
+  std::memset(task.iovs, 0, sizeof(iovec) * task.num_iovecs);
 
   for (size_t i = 0; i < task.num_iovecs; i++) {
     if (read_so_far + original_iovs_ptr[i].iov_len > total_progress) {
       auto offset_in_block = total_progress - read_so_far;
 
       // set first buffer to correct offset
-      buff_iovecs[0].iov_base = &reinterpret_cast<uint8_t *>(original_iovs_ptr[i].iov_base)[offset_in_block];
-      buff_iovecs[0].iov_len = original_iovs_ptr[i].iov_len - offset_in_block;
+      task.iovs[0].iov_base = &reinterpret_cast<uint8_t *>(original_iovs_ptr[i].iov_base)[offset_in_block];
+      task.iovs[0].iov_len = original_iovs_ptr[i].iov_len - offset_in_block;
       // set remaining buffers to rest of the iovecs
       for (size_t j = 1; j + i < task.num_iovecs; j++) {
-        buff_iovecs[j].iov_base = original_iovs_ptr[i + j].iov_base;
-        buff_iovecs[j].iov_len = original_iovs_ptr[i + j].iov_len;
+        task.iovs[j].iov_base = original_iovs_ptr[i + j].iov_base;
+        task.iovs[j].iov_len = original_iovs_ptr[i + j].iov_len;
       }
       break;
     } else if (read_so_far + original_iovs_ptr[i].iov_len == total_progress) {
@@ -329,8 +337,8 @@ void network_server::readv_callback(processed_data_vecs read_metadata, uint64_t 
       // i++ because this entire iovec has been written, so begin writing from next one
       i++;
       for (int j = 0; j + i < task.num_iovecs; j++) {
-        buff_iovecs[j].iov_base = original_iovs_ptr[i + j].iov_base;
-        buff_iovecs[j].iov_len = original_iovs_ptr[i + j].iov_len;
+        task.iovs[j].iov_base = original_iovs_ptr[i + j].iov_base;
+        task.iovs[j].iov_len = original_iovs_ptr[i + j].iov_len;
       }
       break;
     }
@@ -339,7 +347,7 @@ void network_server::readv_callback(processed_data_vecs read_metadata, uint64_t 
 
   task.progress += read_metadata.op_res_num;
 
-  ev->submit_readv(pfd, buff_iovecs, task.num_iovecs, task_id);
+  ev->submit_readv(pfd, task.iovs, task.num_iovecs, task_id);
 }
 
 void network_server::write_callback(processed_data write_metadata, uint64_t pfd, uint64_t task_id) {
@@ -371,6 +379,7 @@ void network_server::write_callback(processed_data write_metadata, uint64_t pfd,
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
       // there was some other error
+      std::cout << "375 application_close_callback " << task_id << "\n";
       application_close_callback(pfd, task_id);
       return;
     }
@@ -405,11 +414,14 @@ void network_server::write_callback(processed_data write_metadata, uint64_t pfd,
 }
 
 void network_server::shutdown_callback(int how, uint64_t pfd, int op_res_num, uint64_t task_id) {
+  std::cout << "\t\t\t\tshutdown callback bein used " << task_id << "\n";
   if (op_res_num < 0) {
     // in case of any of these errors, just close the socket
     ev->shutdown_and_close_normally(pfd);
     // there was some other error
+
     application_close_callback(pfd, task_id);
+    return;
   }
 
   // only will be submitting shutdown using SHUT_RDWR
@@ -427,7 +439,7 @@ void network_server::close_callback(uint64_t pfd, int op_res_num, uint64_t task_
     // in case of any of these errors, just close the socket
     ev->shutdown_and_close_normally(pfd);
   }
-
+  std::cout << "431 application_close_callback " << task_id << "\n";
   application_close_callback(pfd, task_id);
 }
 
