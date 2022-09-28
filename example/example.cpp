@@ -52,6 +52,8 @@ void app_methods::raw_read_callback(buff_data data, int client_num, bool failed_
   vecs[1].iov_base = content_data;
   vecs[1].iov_len = data.size;
 
+  ns->raw_close(client_num);
+
   std::cout << "(filepath, size, req pfd, file pfd): (" << jobdata.filepath << ", " << data.size << ", "
             << jobdata.client_num << ", " << client_num << ")\n";
 

@@ -5,6 +5,7 @@
 #include "header/http_request.h"
 #include "header/metadata.hpp"
 #include "header/utility.hpp"
+#include <cstdint>
 #include <cstring>
 #include <set>
 
@@ -133,7 +134,7 @@ private:
   // helper methods
   bool http_response_method(int pfd, buff_data data = {}, bool failed_req = false);
   bool websocket_frame_response_method(int pfd, buff_data data = {}, bool failed_req = false);
-  void network_read_procedure(int pfd, buff_data data = {}, bool failed_req = false);
+  void network_read_procedure(int pfd, uint64_t task_id, bool failed_req = false, buff_data data = {});
 
 public:
   network_server(int port, event_manager *ev, application_methods *callbacks);

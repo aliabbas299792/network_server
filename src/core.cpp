@@ -1,5 +1,6 @@
 #include "../header/debug_mem_ops.hpp"
 #include "network_server.hpp"
+#include <cstdint>
 #include <signal.h>
 
 network_server::network_server(int port, event_manager *ev, application_methods *callbacks) {
@@ -156,13 +157,13 @@ void network_server::application_close_callback(int pfd, int task_id) {
   // task is no longer needed since related pfd has been closed
 }
 
-void network_server::network_read_procedure(int pfd, buff_data data, bool failed_req) {
+void network_server::network_read_procedure(int pfd, uint64_t task_id, bool failed_req, buff_data data) {
   // http_response returns true if it was valid data and took action
   // websocket_frame_response returns true if it's a websocket frame
   // otherwise close the connection
   if (!http_response_method(pfd, data, failed_req) &&
       !websocket_frame_response_method(pfd, data, failed_req) && !failed_req) {
     // only need to call close method if it isn't a failed request, otherwise it is already going to close
-    close_pfd_gracefully(pfd);
+    close_pfd_gracefully(pfd, task_id);
   }
 }

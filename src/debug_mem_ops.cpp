@@ -4,7 +4,7 @@ std::unordered_map<uint64_t, size_t> PTR_TO_ALLOC{};
 size_t MEM_ALLOCATED{};
 
 void *MALLOC(size_t size) {
-  void *ptr = malloc(size);
+  void *ptr = calloc(size, 1);
 #ifdef DEBUG_MODE
   MEM_ALLOCATED += size;
   PTR_TO_ALLOC[uint64_t(ptr)] = size;

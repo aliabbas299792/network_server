@@ -80,3 +80,14 @@ A simple library which can be used to write a web server.
 
 # Good practice
 - Unless a bunch of operations MUST happen at once (i.e if a single failure means all of them should fail), use the `submit_*` functions rather than `queue_*` and then `submit_*`
+
+# Helpful
+Run gdb then run `nsdebug` to run a couple of convenient commands
+```
+define nsdebug
+        handle SIGPIPE nostop noprint pass
+        set breakpoint pending on
+        file build/example/network_server_example
+        run
+        bt
+```
