@@ -80,7 +80,3 @@ A simple library which can be used to write a web server.
 
 # Good practice
 - Unless a bunch of operations MUST happen at once (i.e if a single failure means all of them should fail), use the `submit_*` functions rather than `queue_*` and then `submit_*`
-
-# Bugs
-- Memory leak due to user stuff, maybe put iovec/buffer stuff in close callback to allow user to free the stuff
-- Look into SIGPIPE stuff

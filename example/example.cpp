@@ -30,15 +30,17 @@ void app_methods::http_read_callback(http_request req, int client_num, bool fail
 
   if (file_num_to_request_client_num.size() <= file_num) {
     file_num_to_request_client_num.resize(file_num + 1);
-    file_num_to_request_client_num[file_num].client_num = client_num;
-    file_num_to_request_client_num[file_num].filepath = filepath;
   }
+  file_num_to_request_client_num[file_num].client_num = client_num;
+  file_num_to_request_client_num[file_num].filepath = filepath;
 }
 
 void app_methods::raw_read_callback(buff_data data, int client_num, bool failed_req) {
+  if (failed_req) {
+    std::cout << "(((failed req))) file pfd: \n" << client_num;
+    return;
+  }
   auto &jobdata = file_num_to_request_client_num[client_num];
-  std::cout << jobdata.filepath << " is the path\n";
-  std::cout << data.size << " is the size\n";
 
   http_response resp{http_resp_codes::RESP_200_OK, http_ver::HTTP_10, false, "text/html", data.size};
   auto resp_data = resp.allocate_buffer();
@@ -50,8 +52,11 @@ void app_methods::raw_read_callback(buff_data data, int client_num, bool failed_
   vecs[1].iov_base = content_data;
   vecs[1].iov_len = data.size;
 
-  ns->http_writev(jobdata.client_num, vecs, 2);
-  std::cout << "got the file\n";
+  std::cout << "(filepath, size, req pfd, file pfd): (" << jobdata.filepath << ", " << data.size << ", "
+            << jobdata.client_num << ", " << client_num << ")\n";
+
+  auto res = ns->http_writev(jobdata.client_num, vecs, 2);
+  std::cout << "got the file, res: " << res << "\n";
 }
 
 void app_methods::http_write_callback(buff_data data, int client_num, bool failed_req) {}
