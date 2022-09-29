@@ -58,7 +58,7 @@ void fatal_error(std::string error_message) {
 }
 
 int setup_listener_pfd(int port, event_manager *ev) {
-  int listener_fd, listener_pfd;
+  int listener_fd{}, listener_pfd = -1;
 
   int yes = true;
   addrinfo hints, *server_info, *traverser;
@@ -68,7 +68,7 @@ int setup_listener_pfd(int port, event_manager *ev) {
   hints.ai_socktype = SOCK_STREAM; // tcp
   hints.ai_flags = AI_PASSIVE;     // use local IP
 
-  int ret_addrinfo, ret_bind;
+  int ret_addrinfo{}, ret_bind{};
   ret_addrinfo = getaddrinfo(NULL, std::to_string(port).c_str(), &hints, &server_info);
 
   for (traverser = server_info; traverser != NULL; traverser = traverser->ai_next) {

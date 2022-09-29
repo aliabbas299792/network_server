@@ -30,7 +30,6 @@ int network_server::get_task() {
 
   if (task_freed_idxs.size() > 0) {
     id = *task_freed_idxs.begin();
-    std::cout << "\t\t\tassigned id(1): " << id << "\n";
     task_freed_idxs.erase(id);
 
     auto &freed_task = task_data[id];
@@ -38,10 +37,7 @@ int network_server::get_task() {
   } else {
     task_data.emplace_back();
     id = task_data.size() - 1;
-    std::cout << "\t\t\tassigned id(2): " << id << "\n";
   }
-
-  std::cout << "\t\t\tassigned id: " << id << "\n";
 
   return id;
 }
@@ -89,7 +85,6 @@ void network_server::free_task(int task_id) {
 }
 
 void network_server::close_pfd_gracefully(int pfd, uint64_t task_id) {
-  std::cout << "\t\tthe forbidden is being used " << task_id << "\n";
   const auto &pfd_info = ev->get_pfd_data(pfd);
   auto &task_info = task_data[task_id];
 
@@ -120,11 +115,9 @@ void network_server::close_pfd_gracefully(int pfd, uint64_t task_id) {
 
     if (shutdown_code < 0) {
       ev->shutdown_and_close_normally(pfd);
-      std::cout << "127 core application_close_callback " << task_id << "\n";
       application_close_callback(pfd, task_id);
     }
   } else {
-    std::cout << "127 core application_close_callback(2) " << task_id << "\n";
     // only EVENT_READ and maybe RAW_*
     ev->close_pfd(pfd, task_id);
     if (task_id != -1u) {
@@ -133,8 +126,7 @@ void network_server::close_pfd_gracefully(int pfd, uint64_t task_id) {
   }
 }
 
-void network_server::application_close_callback(int pfd, int task_id) {
-  std::cout << "\t\tthe forbidden is being used(2) " << task_id << "\n";
+void network_server::application_close_callback(int pfd, uint64_t task_id) {
   const auto &task = task_data[task_id];
 
   switch (task.op_type) {
@@ -162,8 +154,8 @@ void network_server::application_close_callback(int pfd, int task_id) {
     break;
   }
 
-  std::cout << "162 core free " << task_id << "\n";
-  free_task(task_id);
+  if (task_id != -1u)
+    free_task(task_id);
   // task is no longer needed since related pfd has been closed
 }
 
@@ -174,7 +166,6 @@ void network_server::network_read_procedure(int pfd, uint64_t task_id, bool fail
   if (!http_response_method(pfd, data, failed_req) &&
       !websocket_frame_response_method(pfd, data, failed_req) && !failed_req) {
     // only need to call close method if it isn't a failed request, otherwise it is already going to close
-    std::cout << "166 close pfd gracefully\n";
     close_pfd_gracefully(pfd, task_id);
   }
 }

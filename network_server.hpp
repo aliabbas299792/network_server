@@ -54,9 +54,6 @@ struct task {
 
   struct iovec *iovs{};   // for storing original iovecs
   size_t num_iovecs = -1; // for writev
-
-  char shutdown = false;       // for net sockets
-  char last_read_zero = false; // for net sockets
 };
 
 // the term client num is synonymous with pfd (pseudo fd) for the application
@@ -97,10 +94,18 @@ public:
   void set_network_server(network_server *ns) { this->ns = ns; }
 };
 
+// pfd_state is needed for storing any necessary state information
+// for now this is just used for shutting connections gracefully
+struct pfd_state {
+  char shutdown_done = false;  // for net sockets
+  char last_read_zero = false; // for net sockets
+};
+
 class network_server : public server_methods {
 private:
   friend class web_methods;
 
+  std::vector<pfd_state> pfd_states{};
   std::vector<task> task_data{};
   std::set<int> task_freed_idxs{};
   int get_task();
@@ -128,7 +133,7 @@ private:
 
 private:
   // need to deal with various types operation_types
-  void application_close_callback(int pfd, int task_id);
+  void application_close_callback(int pfd, uint64_t task_id = -1);
   void close_pfd_gracefully(int pfd, uint64_t task_id = -1); // will call shutdown if needed
 
   // helper methods

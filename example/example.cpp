@@ -10,7 +10,7 @@ void app_methods::http_read_callback(http_request req, int client_num, bool fail
   }
 
   const auto filepath = base_file_path + "/" + req.path;
-  const auto file_num = ns->local_open(filepath.c_str(), O_RDONLY);
+  const size_t file_num = ns->local_open(filepath.c_str(), O_RDONLY);
 
   if (file_num < 0) {
     std::cout << "failed to find file\n";
@@ -37,7 +37,7 @@ void app_methods::http_read_callback(http_request req, int client_num, bool fail
 
 void app_methods::raw_read_callback(buff_data data, int client_num, bool failed_req) {
   if (failed_req) {
-    std::cout << "(((failed req))) file pfd: \n" << client_num;
+    std::cout << "|-> failed req, file pfd: \n" << client_num;
     return;
   }
   auto &jobdata = file_num_to_request_client_num[client_num];

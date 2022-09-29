@@ -91,13 +91,16 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
       // there was some other error, clean up resources, call correct close callback
-      std::cout << "94 application_close_callback " << task_id << "\n";
       application_close_callback(pfd, task_id);
     }
     }
 
     return;
   }
+
+  if (pfd >= pfd_states.size())
+    pfd_states.resize(pfd + 1);
+  auto &state = pfd_states[pfd];
 
   if (read_metadata.op_res_num == 0) { // read was 0, socket connection closed
     auto &task = task_data[task_id];
@@ -110,17 +113,15 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
     // or if shutdown not called, but shutdown call fails
     // or if it isn't a network socket
     // then shutdown normally and call the close callback
-    std::cout << "some bullshit happening " << task_id << "\n";
     if ((ev->get_pfd_data(pfd).type != fd_types::NETWORK) ||
-        (task.shutdown && ev->close_pfd(pfd, task_id) < 0) ||
-        (!task.shutdown && ev->submit_shutdown(pfd, SHUT_RDWR, task_id) < 0)) {
+        (state.shutdown_done && ev->close_pfd(pfd, task_id) < 0) ||
+        (!state.shutdown_done && ev->submit_shutdown(pfd, SHUT_RDWR, task_id) < 0)) {
       ev->shutdown_and_close_normally(pfd);
-      std::cout << "116 application_close_callback " << task_id << "\n";
       application_close_callback(pfd, task_id);
     } else {
-      task.last_read_zero = true; // so we can call close in shutdown callback instead
+      state.last_read_zero = true; // so we can call close in shutdown callback instead
       ev->submit_shutdown(pfd, SHUT_RDWR, task_id);
-      // returns here since if we free the task, the marker task.last_read_zer = true
+      // returns here since if we free the task, the marker last_read_zer = true
       // disappears with it
       return;
     }
@@ -164,7 +165,7 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
     // and can cause a segmentation fault
     auto &task = task_data[task_id];
     task.progress = 0;
-    task.shutdown = false;
+    state.shutdown_done = false;
     std::memset(task.buff, 0, READ_SIZE);
 
     ev->submit_read(pfd, task.buff, READ_SIZE, task_id);
@@ -173,7 +174,6 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
   default: {
     // shouldn't get here usually, but this is in case it does
     ev->shutdown_and_close_normally(pfd);
-    std::cout << "174 application_close_callback " << task_id << "\n";
     application_close_callback(pfd, task_id);
     free_task(task_id);
   }
@@ -209,7 +209,6 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
       // there was some other error
-      std::cout << "210 application_close_callback " << task_id << "\n";
       application_close_callback(pfd, task_id);
       return;
     }
@@ -291,7 +290,6 @@ void network_server::readv_callback(processed_data_vecs read_metadata, uint64_t 
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
       // there was some other error
-      std::cout << "290 application_close_callback " << task_id << "\n";
       application_close_callback(pfd, task_id);
 
       FREE(task.iovs); // readv allocates some memory in get_task(...)
@@ -379,7 +377,6 @@ void network_server::write_callback(processed_data write_metadata, uint64_t pfd,
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
       // there was some other error
-      std::cout << "375 application_close_callback " << task_id << "\n";
       application_close_callback(pfd, task_id);
       return;
     }
@@ -414,7 +411,6 @@ void network_server::write_callback(processed_data write_metadata, uint64_t pfd,
 }
 
 void network_server::shutdown_callback(int how, uint64_t pfd, int op_res_num, uint64_t task_id) {
-  std::cout << "\t\t\t\tshutdown callback bein used " << task_id << "\n";
   if (op_res_num < 0) {
     // in case of any of these errors, just close the socket
     ev->shutdown_and_close_normally(pfd);
@@ -424,13 +420,15 @@ void network_server::shutdown_callback(int how, uint64_t pfd, int op_res_num, ui
     return;
   }
 
-  // only will be submitting shutdown using SHUT_RDWR
-  auto &task = task_data[task_id];
+  if (pfd >= pfd_states.size())
+    pfd_states.resize(pfd + 1);
+  auto &state = pfd_states[pfd];
 
-  if (task.last_read_zero) {
+  // only will be submitting shutdown using SHUT_RDWR
+  if (state.last_read_zero) {
     ev->close_pfd(pfd, task_id);
   } else {
-    task.shutdown = true;
+    state.shutdown_done = true;
   }
 }
 
@@ -439,7 +437,7 @@ void network_server::close_callback(uint64_t pfd, int op_res_num, uint64_t task_
     // in case of any of these errors, just close the socket
     ev->shutdown_and_close_normally(pfd);
   }
-  std::cout << "431 application_close_callback " << task_id << "\n";
+
   application_close_callback(pfd, task_id);
 }
 
