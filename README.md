@@ -87,6 +87,7 @@ Run gdb then run `nsdebug` to run a couple of convenient commands
 define nsdebug
         handle SIGPIPE nostop noprint pass
         set breakpoint pending on
+        shell ./compile.sh
         file build/example/network_server_example
         run
         bt
