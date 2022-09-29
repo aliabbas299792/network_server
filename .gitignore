@@ -2,3 +2,7 @@ build
 .cache
 subprojects
 vendor
+
+public/*.mp4
+public/*.jpg
+# idea of above being to avoid big files

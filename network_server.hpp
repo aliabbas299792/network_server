@@ -37,6 +37,7 @@ enum operation_type {
   WEBSOCKET_WRITEV,
   HTTP_WRITE,
   HTTP_WRITEV,
+  HTTP_SEND_FILE,
   RAW_WRITE,
   RAW_WRITEV,
   WEBSOCKET_CLOSE,
@@ -54,6 +55,11 @@ struct task {
 
   struct iovec *iovs{};   // for storing original iovecs
   size_t num_iovecs = -1; // for writev
+
+  ranges write_ranges{};
+  int write_ranges_idx{};
+  std::string filepath{};
+  void *additional_ptr{};
 };
 
 // the term client num is synonymous with pfd (pseudo fd) for the application

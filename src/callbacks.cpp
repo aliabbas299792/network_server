@@ -145,10 +145,9 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
       data.buffer = read_metadata.buff;
       data.size = total_progress;
 
+      callbacks->raw_read_callback(data, pfd);
       free_task(task_id); // task is completed so task id is freed (we assume user will free the buffer)
     }
-
-    callbacks->raw_read_callback(data, pfd);
     break;
   }
   case operation_type::NETWORK_READ: {
@@ -405,7 +404,7 @@ void network_server::write_callback(processed_data write_metadata, uint64_t pfd,
     default:
       break;
     }
-
+    std::cout << "watch out for this, this is potentially an incorrect freeing of the task\n";
     free_task(task_id); // done writing, task can be freed now
   }
 }

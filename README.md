@@ -66,7 +66,39 @@ A simple library which can be used to write a web server.
   - The client was closed, deal with cleanup
 
 # Todo
-- test accept_bytes stuff with music/video
+- test accept_bytes stuff with music/video:
+  1. Client sends request with `Range` header
+  2. `http_read_callback` gets this request, parses range header
+  3. The callback then sends a special `http_send_file(filepath, errorfilepath, write_ranges)` request (errorfilepath is basically 404 page or equivalent)
+  4. Then either `filepath` is found (1), or it isn't found, but `errorfilepath` is found (2), or otherwise, return error code indicating `http_send_file` failed
+      - (1) `filepath` found
+        1. Store `write_ranges` in `task.write_ranges`, `filepath` in `task.filepath`
+        2. Set off special task `HTTP_SEND_FILE`, to read into correct buffer
+        3. If read request fails, free `task.write_ranges`, `task.buff` and free the `task_id` (or just rely on `application_close_callback`)
+        4. Call the `http_writev_callback` with `failed_req = true`, no data in the parameters
+        5. Close the client socket (`close_pfd`) or use `shutdown_and_close_normally`
+        6. If read request doesn't fail then it will read into the buffer multiple times until either it reads 0, or has read the total size of the buffer
+        7. For the case of reading 0, you've finished, so submit a writev request with the same `task_id`, then go to step 10.
+        8. For the case of reading multiple times, only adding `HTTP_SEND_FILE` to the switch case in the read callback is enough, then got to 7. or 9.
+        9. For the case of having read the file in full, then go to step 5. below
+    - (2) `errorpath` found, `filepath` not
+        1. Store `filepath` in `task.filepath`
+        2. Set off special task `HTTP_SEND_FILE`, to read into correct buffer
+        3. If read request fails free `task.buff` and free the `task_id` (or just rely on `application_close_callback`)
+        4. Call the `http_writev_callback` with `failed_req = true`, no data in the parameters
+        5. Close the client socket (`close_pfd`) or use `shutdown_and_close_normally`
+        6. If read request doesn't fail then it will read into the buffer multiple times until either it reads 0, or has read the total size of the buffer
+        7. For the case of reading 0, you've finished, so submit a writev request with the same `task_id`, then go to step 10.
+        8. For the case of reading multiple times, only adding `HTTP_SEND_FILE` to the switch case in the read callback is enough, then got to 7. or 9.
+        9. For the case of having read the file in full, then go to step 5. below
+  5. If `task.write_ranges` has no ranges, make an appropriate HTTP header as done in `example.cpp`, and manually call `submit_writev` (store `task.buff` in `task.additional_ptr`)
+  6. If `task.write_ranges` has 1 or more ranges, make a HTTP header with the correct range header response (https://stackoverflow.com/questions/3303029/http-range-header), also following the example in `example.cpp`, and manually call `submit_writev`, but also make sure to increment `task.write_ranges_idx`
+  7. In the writev callback, for `HTTP_SEND_FILE`, first off do the usual thing of correctly doing the entire write procedure, then once complete, check if `task.write_ranges_idx == task.write_ranges.rs_len` (i.e it has written all the ranges), then go to step 9.
+  8. If it has, then call the `http_writev_callback`, if it hasn't then resubmit by once again incrementing `task.write_ranges_idx`, until you get to 7. above
+  9. If there is an error, then do step 10. in the error handling section for the writev callback
+  10. For now now free `task.buff`, `task.write_ranges` (somehow, since `task.write_ranges.rs` is allocated), `task.iovs` and `task.additional_ptr`, free the `task_id` and call the `http_writev_callback` (with `failed_req = true` if it's an error), and return
+
+  <br>
 - add in support for POSTing large amounts of data
 - add in TLS support
 - The network server should be able to load in the `event_manager` library dynamically, instantiate it, start it, and replace an older version with a newer version.

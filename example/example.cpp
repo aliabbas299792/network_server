@@ -22,15 +22,8 @@ void app_methods::http_read_callback(http_request &&req, int client_num, bool fa
   ns->local_fstat(file_num, &sb);
   const size_t size = sb.st_size;
 
-  auto r = req.get_ranges(size);
-  if (r.rs_len != 0) {
-    std::cout << "\n\n\nranges: "
-              << "\n";
-    for (size_t i = 0; i < r.rs_len; i++) {
-      std::cout << r.rs[i].start << " to " << r.rs[i].end << "\n";
-    }
-    std::cout << "\n\n";
-  }
+  auto write_ranges = req.get_ranges(size);
+  FREE(write_ranges.rs);
 
   uint8_t *buff = (uint8_t *)MALLOC(size);
   ns->raw_read(file_num, {size, buff});
@@ -38,11 +31,13 @@ void app_methods::http_read_callback(http_request &&req, int client_num, bool fa
   std::cout << "getting file: " << filepath << ", size: " << size << ", pfd: " << file_num
             << ", for client: " << client_num << "\n";
 
-  if (file_num_to_request_client_num.size() <= file_num) {
-    file_num_to_request_client_num.resize(file_num + 1);
+  if (job_requests.size() <= file_num) {
+    job_requests.resize(file_num + 1);
   }
-  file_num_to_request_client_num[file_num].client_num = client_num;
-  file_num_to_request_client_num[file_num].filepath = filepath;
+
+  auto &file_client = job_requests[file_num];
+  file_client.client_num = client_num;
+  file_client.filepath = filepath;
 }
 
 void app_methods::raw_read_callback(buff_data data, int client_num, bool failed_req) {
@@ -50,7 +45,7 @@ void app_methods::raw_read_callback(buff_data data, int client_num, bool failed_
     std::cout << "|-> failed req, file pfd: \n" << client_num;
     return;
   }
-  auto &jobdata = file_num_to_request_client_num[client_num];
+  auto &jobdata = job_requests[client_num];
 
   std::string type = "text/html";
   if (jobdata.filepath.ends_with(".mp4")) {

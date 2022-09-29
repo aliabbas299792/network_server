@@ -22,7 +22,7 @@ public:
 
   std::string base_file_path{};
 
-  std::vector<job_data> file_num_to_request_client_num{};
+  std::vector<job_data> job_requests{};
 
   app_methods(const std::string &base_file_path) {
     event_manager ev{};
