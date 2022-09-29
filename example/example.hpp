@@ -15,7 +15,7 @@ class app_methods : public application_methods {
 public:
   void raw_read_callback(buff_data data, int client_num, bool failed_req = false) override;
 
-  void http_read_callback(http_request req, int client_num, bool failed_req) override;
+  void http_read_callback(http_request &&req, int client_num, bool failed_req) override;
   void http_write_callback(buff_data data, int client_num, bool failed_req) override;
   void http_writev_callback(struct iovec *data, size_t num_iovecs, int client_num, bool failed_req) override;
   void http_close_callback(int client_num) override;

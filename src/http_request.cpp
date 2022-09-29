@@ -1,4 +1,6 @@
 #include "../header/http_request.h"
+#include "../header/debug_mem_ops.hpp"
+#include <cstring>
 
 void http_request::req_type_data_parser(char *token_str) {
   // the smallest valid get line
@@ -114,7 +116,8 @@ void http_request::http_header_parser(char *token_str) {
   } else if (strcmp(header_key, "X-Forwarded-For") == 0) {
     this->x_forwarded_for = val_ptr;
   } else if (strcmp(header_key, "Range") == 0) {
-    this->range = val_ptr;
+    this->range_str = (char *)MALLOC(strlen(val_ptr) + 1);
+    strcpy(this->range_str, val_ptr);
   }
 }
 
@@ -134,4 +137,74 @@ http_request::http_request(char *buff) {
   while ((tok_ptr = strtok_r(buff_ptr, "\r\n", &save_ptr)) != nullptr) {
     http_header_parser(tok_ptr);
   }
+}
+
+http_request::~http_request() {
+  FREE(range_str);
+  range_str = nullptr;
+}
+
+ranges http_request::get_ranges(size_t max_size) {
+  range *rs{};
+  size_t rs_len{};
+  if (range_parse(max_size, &rs, &rs_len))
+    return {rs, rs_len};
+  return {};
+}
+
+bool http_request::range_parse(size_t max_size, range **ranges, size_t *ranges_len) {
+  if (!range_str)
+    return false;
+  if (strncmp(range_str, "none", strlen("none")) == 0)
+    return false; // no range supported
+
+  size_t num_commas = 0;
+  for (size_t i = 0; i < strlen(range_str); i++)
+    if (range_str[i] == ',')
+      num_commas++;
+
+  *ranges_len = num_commas + 1; // 0 commas implies 1 range, 1 implies 2 etc
+  *ranges = (range *)MALLOC(sizeof(range) * (*ranges_len));
+
+  int bytes_len = strlen("bytes=");
+  int cpy_len = strlen(range_str) - bytes_len;
+  char *range_cpy = new char[cpy_len];
+  memcpy(range_cpy, range_str + bytes_len, cpy_len);
+
+  int ranges_idx = 0;
+
+  char *saveptr{}, *tok{}, *cpy_ptr = range_cpy;
+  while ((tok = strtok_r(cpy_ptr, ", ", &saveptr))) {
+    cpy_ptr = nullptr;
+
+    if (tok[0] != '-') {
+      char *saveptr2{}, *cpy_ptr2 = tok;
+      char *range_start = strtok_r(cpy_ptr2, "-", &saveptr2);
+      cpy_ptr2 = nullptr;
+      char *range_end = strtok_r(cpy_ptr2, "-", &saveptr2);
+
+      auto &r = (*ranges)[ranges_idx++];
+      r.start = std::atoi(range_start);
+      if (*range_start != '0' && r.start == 0)
+        return false;
+      if (!range_end) {
+        r.end = max_size;
+      } else {
+        r.end = std::atoi(range_end);
+        if (*range_end != '0' && r.end == 0)
+          return false;
+      }
+    } else {
+      if (strlen(tok) > 1) {
+        size_t end_offset = std::atoi(&tok[1]);
+        if (tok[1] != 0 && end_offset == 0)
+          return false;
+        auto &r = (*ranges)[ranges_idx++];
+        r.start = max_size - end_offset;
+        r.end = max_size;
+      }
+    }
+  }
+
+  return true;
 }

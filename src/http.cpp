@@ -5,7 +5,7 @@ bool network_server::http_response_method(int pfd, buff_data data, bool failed_r
   http_request req{reinterpret_cast<char *>(data.buffer)};
 
   if (req.valid_req) {
-    callbacks->http_read_callback(req, pfd, failed_req);
+    callbacks->http_read_callback(std::move(req), pfd, failed_req);
     return true;
   }
 

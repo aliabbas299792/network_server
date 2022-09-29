@@ -79,7 +79,7 @@ public:
                                          bool failed_req = false) {}
   virtual void websocket_close_callback(int client_num) {}
 
-  virtual void http_read_callback(http_request req, int client_num, bool failed_req = false) {}
+  virtual void http_read_callback(http_request &&req, int client_num, bool failed_req = false) {}
   virtual void http_write_callback(buff_data data, int client_num, bool failed_req = false) {}
   virtual void http_writev_callback(struct iovec *data, size_t num_iovecs, int client_num,
                                     bool failed_req = false) {}

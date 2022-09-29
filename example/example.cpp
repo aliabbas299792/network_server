@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-void app_methods::http_read_callback(http_request req, int client_num, bool failed_req) {
+void app_methods::http_read_callback(http_request &&req, int client_num, bool failed_req) {
   if (failed_req) {
     return;
   }
@@ -21,6 +21,16 @@ void app_methods::http_read_callback(http_request req, int client_num, bool fail
   struct stat sb {};
   ns->local_fstat(file_num, &sb);
   const size_t size = sb.st_size;
+
+  auto r = req.get_ranges(size);
+  if (r.rs_len != 0) {
+    std::cout << "\n\n\nranges: "
+              << "\n";
+    for (size_t i = 0; i < r.rs_len; i++) {
+      std::cout << r.rs[i].start << " to " << r.rs[i].end << "\n";
+    }
+    std::cout << "\n\n";
+  }
 
   uint8_t *buff = (uint8_t *)MALLOC(size);
   ns->raw_read(file_num, {size, buff});
@@ -45,6 +55,9 @@ void app_methods::raw_read_callback(buff_data data, int client_num, bool failed_
   std::string type = "text/html";
   if (jobdata.filepath.ends_with(".mp4")) {
     type = "video/mp4";
+  }
+  if (jobdata.filepath.ends_with(".jpg")) {
+    type = "image/jpg";
   }
 
   http_response resp{http_resp_codes::RESP_200_OK, http_ver::HTTP_10, false, type, data.size};

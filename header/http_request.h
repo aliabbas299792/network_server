@@ -11,8 +11,21 @@ constexpr char HTTP_VER10[] = "HTTP/1.0";
 constexpr char HTTP_VER11[] = "HTTP/1.1";
 constexpr char ROOT_FILE[] = "index.html";
 
+struct range {
+  size_t start{};
+  size_t end{};
+};
+
+struct ranges {
+  range *rs{};
+  size_t rs_len{};
+};
+
 class http_request {
 private:
+  char *range_str{};
+  bool range_parse(size_t max_size, range **ranges, size_t *ranges_len);
+
   void req_type_data_parser(char *token_str);
   void http_header_parser(char *token_str);
 
@@ -32,11 +45,17 @@ public:
   char *upgrade{};
   char *sec_websocket_key{};
   char *x_forwarded_for{};
-  char *range{};
+
+  ranges get_ranges(size_t max_size);
 
   bool valid_req = true; // assume it is valid from start
 public:
   http_request(char *buff);
+
+  http_request(const http_request &) = delete;
+  http_request &operator=(const http_request &) = delete;
+
+  ~http_request();
 };
 
 #endif
