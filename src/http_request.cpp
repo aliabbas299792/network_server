@@ -144,7 +144,7 @@ http_request::~http_request() {
   range_str = nullptr;
 }
 
-ranges http_request::get_ranges(size_t max_size) {
+ranges http_request::get_ranges(size_t max_size) const {
   range *rs{};
   size_t rs_len{};
   if (range_parse(max_size, &rs, &rs_len))
@@ -152,7 +152,7 @@ ranges http_request::get_ranges(size_t max_size) {
   return {};
 }
 
-bool http_request::range_parse(size_t max_size, range **ranges, size_t *ranges_len) {
+bool http_request::range_parse(size_t max_size, range **ranges, size_t *ranges_len) const {
   if (!range_str)
     return false;
   if (strncmp(range_str, "none", strlen("none")) == 0)
@@ -167,7 +167,7 @@ bool http_request::range_parse(size_t max_size, range **ranges, size_t *ranges_l
   *ranges = (range *)MALLOC(sizeof(range) * (*ranges_len));
 
   int bytes_len = strlen("bytes=");
-  int cpy_len = strlen(range_str) - bytes_len;
+  int cpy_len = strlen(range_str) - bytes_len + 1; // +1 for null terminator
   char *range_cpy = new char[cpy_len];
   memcpy(range_cpy, range_str + bytes_len, cpy_len);
 
@@ -188,8 +188,12 @@ bool http_request::range_parse(size_t max_size, range **ranges, size_t *ranges_l
       if (*range_start != '0' && r.start == 0)
         return false;
       if (!range_end) {
-        r.end = max_size;
+        r.end = (max_size - 1);
       } else {
+        std::cout << "\n\n\t\trange str: |" << range_str << "|\n";
+        std::cout << "\t\trange start: |" << r.start << "|\n";
+        std::cout << "\t\trange end is nullptr: |" << (range_end == nullptr) << "|\n";
+        std::cout << "\t\trange end len: |" << strlen(range_end) << "|\n\n";
         r.end = std::atoi(range_end);
         if (*range_end != '0' && r.end == 0)
           return false;
@@ -200,8 +204,8 @@ bool http_request::range_parse(size_t max_size, range **ranges, size_t *ranges_l
         if (tok[1] != 0 && end_offset == 0)
           return false;
         auto &r = (*ranges)[ranges_idx++];
-        r.start = max_size - end_offset;
-        r.end = max_size;
+        r.start = (max_size - 1) - end_offset;
+        r.end = (max_size - 1);
       }
     }
   }

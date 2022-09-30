@@ -24,7 +24,7 @@ struct ranges {
 class http_request {
 private:
   char *range_str{};
-  bool range_parse(size_t max_size, range **ranges, size_t *ranges_len);
+  bool range_parse(size_t max_size, range **ranges, size_t *ranges_len) const;
 
   void req_type_data_parser(char *token_str);
   void http_header_parser(char *token_str);
@@ -46,7 +46,7 @@ public:
   char *sec_websocket_key{};
   char *x_forwarded_for{};
 
-  ranges get_ranges(size_t max_size);
+  ranges get_ranges(size_t max_size) const;
 
   bool valid_req = true; // assume it is valid from start
 public:

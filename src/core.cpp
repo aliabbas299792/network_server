@@ -135,6 +135,7 @@ void network_server::application_close_callback(int pfd, uint64_t task_id) {
   case HTTP_WRITE:
   case HTTP_WRITEV:
   case HTTP_CLOSE:
+  case HTTP_SEND_FILE:
     callbacks->http_close_callback(pfd);
     break;
   case WEBSOCKET_READ:

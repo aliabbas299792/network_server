@@ -19,6 +19,7 @@ A simple library which can be used to write a web server.
 
 ### HTTP
 - `http_write` and `http_writev` for writing to a HTTP client, and `http_close` for closing when needed
+- `http_send_file`, is a special request, regardless of error outcome, it will always give a response in the `http_writev_callback`, it basically tries sending a file to the client, potentially using supplied ranges parameter, if the file isn't found, then it will send the `not found` file, otherwise it will just return an error
 
 ### Websocket
 - `websocket_write`, `websocket_writev` for writing to a websocket client and `websocket_close` for closing a websocket client
