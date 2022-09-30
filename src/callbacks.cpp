@@ -404,6 +404,7 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
         FREE(task.additional_ptr);           // frees the data that was read
         // successful
         callbacks->http_writev_callback(nullptr, 0, pfd);
+        close_pfd_gracefully(pfd, task_id); // task_id freed here
         return;
       }
       break;
