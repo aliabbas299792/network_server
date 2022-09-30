@@ -59,7 +59,7 @@ struct task {
 
   ranges write_ranges{};
   int write_ranges_idx{};
-  std::string filepath{};
+  std::string file_type{};
   void *additional_ptr{};
 
   uint64_t for_client_num = -1; // which client it is for
@@ -122,6 +122,15 @@ private:
   int get_task(operation_type type, struct iovec *iovecs, size_t num_iovecs);
   void free_task(int task_id);
 
+  // helper for http_send_file
+  void http_send_file_submit_writev(uint64_t pfd, uint64_t task_id);
+  void http_send_file_read_failed(uint64_t pfd, uint64_t task_id);
+  void http_send_file_writev(uint64_t pfd, uint64_t task_id);
+  void http_send_file_writev_finish(uint64_t pfd, uint64_t task_id, bool failed_req);
+
+  // vector ops progress in similar way, so abstracted it to one function
+  void vector_ops_progress(uint64_t task_id, int op_res_num, size_t total_progress);
+
 private:
   application_methods *callbacks{}; // callbacks for the application
   int listener_pfd{};
@@ -166,42 +175,7 @@ public:
   int http_close(int client_num);
 
   int http_send_file(int client_num, const char *filepath, const char *not_found_filepath,
-                     const http_request &req) {
-    size_t file_num = local_open(filepath, O_RDONLY);
-    bool file_not_found = false;
-
-    if (static_cast<int64_t>(file_num) < 0) {
-      file_not_found = true;
-      file_num = local_open(not_found_filepath, O_RDONLY);
-
-      if (static_cast<int64_t>(file_num) < 0) {
-        std::cerr << "Error file not found\n";
-        return file_num;
-      }
-    }
-
-    std::cout << "file pfd: " << file_num << "\n";
-
-    struct stat sb {};
-    local_fstat(file_num, &sb);
-    const size_t size = sb.st_size;
-    uint8_t *buff = (uint8_t *)MALLOC(size);
-
-    auto file_task_id = get_task(operation_type::HTTP_SEND_FILE, buff, size);
-    auto &task = task_data[file_task_id];
-    task.for_client_num = client_num;
-
-    if (!file_not_found) {
-      task.write_ranges = req.get_ranges(size);
-      task.filepath = filepath;
-    } else {
-      task.filepath = not_found_filepath;
-    }
-
-    std::cout << "task filepath: " << task.filepath << ", file size: " << size << "\n";
-
-    return ev->submit_read(file_num, buff, size, file_task_id);
-  }
+                     const http_request &req);
 
   // same as normal read but carries info about what connection type
   int raw_read(int client_num, buff_data data);

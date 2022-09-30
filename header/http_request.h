@@ -17,8 +17,8 @@ struct range {
 };
 
 struct ranges {
-  range *rs{};
-  size_t rs_len{};
+  range *ranges_array{};
+  size_t array_len{};
 };
 
 class http_request {

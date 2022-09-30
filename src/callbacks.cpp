@@ -3,6 +3,7 @@
 #include "header/metadata.hpp"
 #include "network_server.hpp"
 #include <cstdint>
+#include <sys/types.h>
 
 void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_data, socklen_t size,
                                      uint64_t pfd, int op_res_num, uint64_t additional_info) {
@@ -72,10 +73,7 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
       switch (task_data[task_id].op_type) {
       case operation_type::HTTP_SEND_FILE: {
         // http send file failed
-        auto &task = task_data[task_id];
-        FREE(task.write_ranges.rs);
-        FREE(task.buff);
-        callbacks->http_writev_callback(nullptr, 0, pfd, true);
+        http_send_file_read_failed(pfd, task_id);
         break;
       }
       case operation_type::RAW_READ: {
@@ -120,64 +118,11 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
 
     if (task.op_type == operation_type::HTTP_SEND_FILE && task.progress == task.buff_length) {
       // http send file, read stage succeeded
-      auto &task = task_data[task_id];
-      task.additional_ptr = task.buff;
-      task.buff = nullptr;
-      auto client_pfd = task.for_client_num;
-      task.for_client_num = 0;
-
-      std::string type = "text/html";
-      if (task.filepath.ends_with(".mp4")) {
-        type = "video/mp4";
-      }
-      if (task.filepath.ends_with(".jpg")) {
-        type = "image/jpg";
-      }
-
-      const bool using_ranges = task.write_ranges.rs_len != 0 &&
-                                static_cast<size_t>(task.write_ranges_idx) < task.write_ranges.rs_len;
-      char *resp_data{};
-      size_t resp_len{};
-      if (using_ranges) {
-        http_response resp{http_resp_codes::RESP_200_OK, http_ver::HTTP_10,
-                           task.write_ranges.rs[task.write_ranges_idx], type, task.buff_length};
-        resp_data = resp.allocate_buffer();
-        resp_len = resp.length();
-      } else {
-        http_response resp{http_resp_codes::RESP_200_OK, http_ver::HTTP_10, false, type, task.buff_length};
-        resp_data = resp.allocate_buffer();
-        resp_len = resp.length();
-      }
-
-      iovec *vecs = (iovec *)MALLOC(sizeof(iovec) * 2);
-      vecs[0].iov_base = resp_data;
-      vecs[0].iov_len = resp_len;
-      if (using_ranges) {
-        auto &first_range = task.write_ranges.rs[task.write_ranges_idx];
-        vecs[1].iov_base = &task.buff[first_range.start];
-        vecs[1].iov_len = first_range.end - first_range.start;
-      } else {
-        vecs[1].iov_base = task.buff;
-        vecs[1].iov_len = task.buff_length;
-      }
-
-      task.write_ranges_idx++; // writing the first range
-
-      task.buff = reinterpret_cast<uint8_t *>(vecs);
-      task.iovs = (iovec *)MALLOC(sizeof(iovec) * 2);
-      task.num_iovecs = 2;
-      memcpy(task.iovs, task.buff, task.num_iovecs * sizeof(iovec));
-
-      raw_close(pfd); // close the file
-
-      ev->submit_writev(client_pfd, task.iovs, task.num_iovecs, task_id);
+      http_send_file_submit_writev(pfd, task_id);
       return;
     } else if (task.op_type == operation_type::HTTP_SEND_FILE) {
       // http send file failed
-      auto &task = task_data[task_id];
-      FREE(task.write_ranges.rs);
-      FREE(task.buff);
-      callbacks->http_writev_callback(nullptr, 0, pfd, true);
+      http_send_file_read_failed(pfd, task_id);
       // I believe the code below will correctly handle shutting it down
     }
 
@@ -217,58 +162,7 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
     } else { // finished reading
       if (task.op_type == HTTP_SEND_FILE) {
         // http send file, read stage succeeded
-        auto &task = task_data[task_id];
-        task.additional_ptr = task.buff;
-        auto client_pfd = task.for_client_num;
-        task.for_client_num = -1;
-
-        std::string type = "text/html";
-        if (task.filepath.ends_with(".mp4")) {
-          type = "video/mp4";
-        }
-        if (task.filepath.ends_with(".jpg")) {
-          type = "image/jpg";
-        }
-
-        const bool using_ranges = task.write_ranges.rs_len != 0 &&
-                                  static_cast<size_t>(task.write_ranges_idx) < task.write_ranges.rs_len;
-        char *resp_data{};
-        size_t resp_len{};
-        if (using_ranges) {
-          http_response resp{http_resp_codes::RESP_206_PARTIAL, http_ver::HTTP_10,
-                             task.write_ranges.rs[task.write_ranges_idx], type, task.buff_length};
-          resp_data = resp.allocate_buffer();
-          resp_len = resp.length();
-        } else {
-          http_response resp{http_resp_codes::RESP_200_OK, http_ver::HTTP_10, false, type, task.buff_length};
-          resp_data = resp.allocate_buffer();
-          resp_len = resp.length();
-        }
-
-        iovec *vecs = (iovec *)MALLOC(sizeof(iovec) * 2);
-        vecs[0].iov_base = resp_data;
-        vecs[0].iov_len = resp_len;
-        if (using_ranges) {
-          auto &first_range = task.write_ranges.rs[task.write_ranges_idx];
-          vecs[1].iov_base = &task.buff[first_range.start];
-          vecs[1].iov_len = first_range.end - first_range.start;
-        } else {
-          vecs[1].iov_base = task.buff;
-          vecs[1].iov_len = task.buff_length;
-        }
-
-        task.write_ranges_idx++; // writing the first range
-
-        task.buff = reinterpret_cast<uint8_t *>(vecs);
-        task.iovs = (iovec *)MALLOC(sizeof(iovec) * 2);
-        task.num_iovecs = 2;
-        memcpy(task.iovs, task.buff, task.num_iovecs * sizeof(iovec));
-
-        // this potentially causes a reallocation which invalidates the task reference
-        raw_close(pfd); // close the file
-
-        auto &taskWrite = task_data[task_id];
-        ev->submit_writev(client_pfd, taskWrite.iovs, taskWrite.num_iovecs, task_id);
+        http_send_file_submit_writev(pfd, task_id);
       } else {
         data.buffer = read_metadata.buff;
         data.size = total_progress;
@@ -321,28 +215,25 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
     default: {
       switch (task.op_type) {
       case HTTP_SEND_FILE: {
-        FREE(original_iovs_ptr[0].iov_base); // frees the header
-        FREE(task.buff);                     // frees the original iovec
-        FREE(task.write_ranges.rs);          // frees the range data
-        FREE(task.additional_ptr);           // frees the data that was read
-        // no need to free task.iovs here, it is freed below
-        callbacks->http_writev_callback(nullptr, 0, pfd, true);
+        http_send_file_writev_finish(pfd, task_id, true);
         break;
       }
       case HTTP_WRITEV:
         callbacks->http_writev_callback(original_iovs_ptr, task.num_iovecs, pfd, true);
+        FREE(task.iovs); // writev allocates some memory in get_task(...)
         break;
       case RAW_WRITEV:
         callbacks->raw_writev_callback(original_iovs_ptr, task.num_iovecs, pfd, true);
+        FREE(task.iovs); // writev allocates some memory in get_task(...)
         break;
       case WEBSOCKET_WRITEV:
         callbacks->websocket_writev_callback(original_iovs_ptr, task.num_iovecs, pfd, true);
+        FREE(task.iovs); // writev allocates some memory in get_task(...)
         break;
       default:
         break;
       }
 
-      FREE(task.iovs); // writev allocates some memory in get_task(...)
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
       // there was some other error
@@ -356,57 +247,11 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
 
   auto total_progress = task.progress + write_metadata.op_res_num;
 
-  size_t written{};
-
   if (total_progress >= task.buff_length) {
     switch (task.op_type) {
     case HTTP_SEND_FILE: {
-      if (task.write_ranges.rs_len != 0 &&
-          static_cast<size_t>(task.write_ranges_idx) < task.write_ranges.rs_len) {
-        char *resp_data{};
-        size_t resp_len{};
-
-        std::string type = "text/html";
-        if (task.filepath.ends_with(".mp4")) {
-          type = "video/mp4";
-        }
-        if (task.filepath.ends_with(".jpg")) {
-          type = "image/jpg";
-        }
-
-        http_response resp{http_resp_codes::RESP_206_PARTIAL, http_ver::HTTP_10,
-                           task.write_ranges.rs[task.write_ranges_idx], type, task.buff_length};
-        resp_data = resp.allocate_buffer();
-        resp_len = resp.length();
-
-        auto &write_range = task.write_ranges.rs[task.write_ranges_idx];
-        task.write_ranges_idx++; // writing the first range
-
-        FREE(original_iovs_ptr[0].iov_base); // frees the previous header
-        FREE(task.iovs);                     // frees the previous iovec copy
-        // still need the buffer, the original iovec and the ranges
-        // original_iovs_ptr is task.buff
-        original_iovs_ptr[0].iov_base = resp_data;
-        original_iovs_ptr[0].iov_len = resp_len;
-        original_iovs_ptr[1].iov_base = &task.buff[write_range.start];
-        original_iovs_ptr[1].iov_len = write_range.end - write_range.start;
-
-        task.iovs = (iovec *)MALLOC(sizeof(iovec) * 2);
-        memcpy(task.iovs, task.buff, task.num_iovecs * sizeof(iovec));
-
-        ev->submit_writev(pfd, task.iovs, task.num_iovecs, task_id);
-        return;
-      } else {
-        FREE(original_iovs_ptr[0].iov_base); // frees the header
-        FREE(task.buff);                     // frees the original iovec
-        FREE(task.write_ranges.rs);          // frees the range data
-        FREE(task.iovs);                     // frees the iovec copy
-        FREE(task.additional_ptr);           // frees the data that was read
-        // successful
-        callbacks->http_writev_callback(nullptr, 0, pfd);
-        close_pfd_gracefully(pfd, task_id); // task_id freed here
-        return;
-      }
+      http_send_file_writev(pfd, task_id);
+      return; // all that needs to be done for http_send_file is done in the above procedure
       break;
     }
     case HTTP_WRITEV:
@@ -428,36 +273,9 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
     return;
   }
 
-  // so all buffer offsets/lengths are reset
-  std::memset(task.iovs, 0, sizeof(iovec) * task.num_iovecs);
+  // refill data for further writing
+  vector_ops_progress(task_id, write_metadata.op_res_num, total_progress);
 
-  for (size_t i = 0; i < task.num_iovecs; i++) {
-    if (written + original_iovs_ptr[i].iov_len > total_progress) {
-      auto offset_in_block = total_progress - written;
-
-      // set first buffer to correct offset
-      task.iovs[0].iov_base = &reinterpret_cast<uint8_t *>(original_iovs_ptr[i].iov_base)[offset_in_block];
-      task.iovs[0].iov_len = original_iovs_ptr[i].iov_len - offset_in_block;
-      // set remaining buffers to rest of the iovecs
-      for (size_t j = 1; j + i < task.num_iovecs; j++) {
-        task.iovs[j].iov_base = original_iovs_ptr[i + j].iov_base;
-        task.iovs[j].iov_len = original_iovs_ptr[i + j].iov_len;
-      }
-      break;
-    } else if (written + original_iovs_ptr[i].iov_len == total_progress) {
-      // set remaining buffers to rest of the iovecs
-      // i++ because this entire iovec has been written, so begin writing from next one
-      i++;
-      for (int j = 0; j + i < task.num_iovecs; j++) {
-        task.iovs[j].iov_base = original_iovs_ptr[i + j].iov_base;
-        task.iovs[j].iov_len = original_iovs_ptr[i + j].iov_len;
-      }
-      break;
-    }
-    written += original_iovs_ptr[i].iov_len;
-  }
-
-  task.progress += write_metadata.op_res_num;
   ev->submit_writev(pfd, task.iovs, task.num_iovecs, task_id);
 }
 
@@ -486,12 +304,7 @@ void network_server::readv_callback(processed_data_vecs read_metadata, uint64_t 
     return;
   }
 
-  // most this code is nearly identical to stuff for writev, consider refactoring
-  // into a single helper method later
-
   auto total_progress = task.progress + read_metadata.op_res_num;
-
-  size_t read_so_far{};
 
   if (total_progress >= task.buff_length) {
     callbacks->raw_readv_callback(original_iovs_ptr, task.num_iovecs, pfd);
@@ -500,6 +313,17 @@ void network_server::readv_callback(processed_data_vecs read_metadata, uint64_t 
     return;
   }
 
+  // refill data for further writing
+  vector_ops_progress(task_id, read_metadata.op_res_num, total_progress);
+
+  ev->submit_readv(pfd, task.iovs, task.num_iovecs, task_id);
+}
+
+void network_server::vector_ops_progress(uint64_t task_id, int op_res_num, size_t total_progress) {
+  auto &task = task_data[task_id];
+  auto original_iovs_ptr = reinterpret_cast<iovec *>(task.buff);
+
+  size_t read_so_far{};
   // so all buffer offsets/lengths are reset
   std::memset(task.iovs, 0, sizeof(iovec) * task.num_iovecs);
 
@@ -529,9 +353,7 @@ void network_server::readv_callback(processed_data_vecs read_metadata, uint64_t 
     read_so_far += original_iovs_ptr[i].iov_len;
   }
 
-  task.progress += read_metadata.op_res_num;
-
-  ev->submit_readv(pfd, task.iovs, task.num_iovecs, task_id);
+  task.progress += op_res_num;
 }
 
 void network_server::write_callback(processed_data write_metadata, uint64_t pfd, uint64_t task_id) {
