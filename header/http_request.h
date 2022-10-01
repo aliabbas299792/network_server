@@ -29,6 +29,8 @@ private:
   void req_type_data_parser(char *token_str);
   void http_header_parser(char *token_str);
 
+  char *buff{};
+
 public:
   std::string path{};
   std::string req_type{};
@@ -53,7 +55,7 @@ public:
 
   bool valid_req = true; // assume it is valid from start
 public:
-  http_request(char *buff);
+  http_request(char *buff, size_t length);
 
   http_request(const http_request &) = delete;
   http_request &operator=(const http_request &) = delete;

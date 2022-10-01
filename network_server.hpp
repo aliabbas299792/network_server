@@ -39,6 +39,7 @@ enum operation_type {
   HTTP_WRITE,
   HTTP_WRITEV,
   HTTP_SEND_FILE,
+  HTTP_POST_READ,
   RAW_WRITE,
   RAW_WRITEV,
   WEBSOCKET_CLOSE,
@@ -155,9 +156,11 @@ private:
   void close_pfd_gracefully(int pfd, uint64_t task_id = -1); // will call shutdown if needed
 
   // helper methods
-  bool http_response_method(int pfd, buff_data data = {}, bool failed_req = false);
-  bool websocket_frame_response_method(int pfd, buff_data data = {}, bool failed_req = false);
-  void network_read_procedure(int pfd, uint64_t task_id, bool failed_req = false, buff_data data = {});
+  bool http_response_method(int pfd, bool &auto_resubmit_read, buff_data data = {}, bool failed_req = false);
+  bool websocket_frame_response_method(int pfd, bool &auto_resubmit_read, buff_data data = {},
+                                       bool failed_req = false);
+  void network_read_procedure(int pfd, uint64_t task_id, bool &auto_resubmit_read, bool failed_req = false,
+                              buff_data data = {});
 
 public:
   network_server(int port, event_manager *ev, application_methods *callbacks);

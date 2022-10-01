@@ -1,6 +1,7 @@
 #include "network_server.hpp"
 
-bool network_server::websocket_frame_response_method(int pfd, buff_data data, bool failed_req) {
+bool network_server::websocket_frame_response_method(int pfd, bool &auto_resubmit_read, buff_data data,
+                                                     bool failed_req) {
   return false;
 }
 

@@ -1,7 +1,7 @@
 #ifndef NETWORK_SERVER_EXAMPLE
 #define NETWORK_SERVER_EXAMPLE
 
-constexpr int port = 4000;
+constexpr int port = 4001;
 
 #include "../header/http_response.h"
 #include "../network_server.hpp"

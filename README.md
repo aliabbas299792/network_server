@@ -20,6 +20,7 @@ A simple library which can be used to write a web server.
 ### HTTP
 - `http_write` and `http_writev` for writing to a HTTP client, and `http_close` for closing when needed
 - `http_send_file`, is a special request, regardless of error outcome, it will always give a response in the `http_writev_callback`, it basically tries sending a file to the client. You pass the http request object to it, which it will use to send the appropriate file range.
+- The enum `HTTP_POST_READ` is specifically used for reading POST data
 
 ### Websocket
 - `websocket_write`, `websocket_writev` for writing to a websocket client and `websocket_close` for closing a websocket client

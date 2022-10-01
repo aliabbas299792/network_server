@@ -136,6 +136,7 @@ void network_server::application_close_callback(int pfd, uint64_t task_id) {
   case HTTP_WRITEV:
   case HTTP_CLOSE:
   case HTTP_SEND_FILE:
+  case HTTP_POST_READ:
     callbacks->http_close_callback(pfd);
     break;
   case WEBSOCKET_READ:
@@ -160,12 +161,16 @@ void network_server::application_close_callback(int pfd, uint64_t task_id) {
   // task is no longer needed since related pfd has been closed
 }
 
-void network_server::network_read_procedure(int pfd, uint64_t task_id, bool failed_req, buff_data data) {
+void network_server::network_read_procedure(int pfd, uint64_t task_id, bool &auto_resubmit_read,
+                                            bool failed_req, buff_data data) {
+  // by default auto_resubmit_read is true, it is because we assume that the read wants to be automatically
+  // resubmit
+
   // http_response returns true if it was valid data and took action
   // websocket_frame_response returns true if it's a websocket frame
   // otherwise close the connection
-  if (!http_response_method(pfd, data, failed_req) &&
-      !websocket_frame_response_method(pfd, data, failed_req) && !failed_req) {
+  if (!http_response_method(pfd, auto_resubmit_read, data, failed_req) &&
+      !websocket_frame_response_method(pfd, auto_resubmit_read, data, failed_req) && !failed_req) {
     // only need to call close method if it isn't a failed request, otherwise it is already going to close
     close_pfd_gracefully(pfd, task_id);
   }

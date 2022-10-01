@@ -125,9 +125,13 @@ void http_request::http_header_parser(char *token_str) {
   }
 }
 
-http_request::http_request(char *buff) {
-  if (!buff)
+http_request::http_request(char *original_buff, size_t length) {
+  if (!original_buff)
     return;
+
+  // since strtok_r modifies the original buffer, we use a copy
+  this->buff = (char *)MALLOC(length + 1); // +1 for '\0' at the end
+  memcpy(this->buff, original_buff, length);
 
   const char doublebreak[] = "\r\n\r\n";
   const char doublebreak_len = strlen(doublebreak);
@@ -156,6 +160,8 @@ http_request::http_request(char *buff) {
 
 http_request::~http_request() {
   FREE(range_str);
+  FREE(buff);
+  buff = nullptr;
   range_str = nullptr;
 }
 

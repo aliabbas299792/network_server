@@ -19,8 +19,7 @@ void network_server::http_send_file_submit_writev(uint64_t pfd, uint64_t task_id
     resp_data = resp.allocate_buffer();
     resp_len = resp.length();
   } else {
-    http_response resp{http_resp_codes::RESP_200_OK, http_ver::HTTP_10, false, task.file_type,
-                       task.buff_length};
+    http_response resp{http_resp_codes::RESP_200_OK, http_ver::HTTP_10, task.file_type, task.buff_length};
     resp_data = resp.allocate_buffer();
     resp_len = resp.length();
   }

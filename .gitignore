@@ -5,4 +5,8 @@ vendor
 
 public/*.mp4
 public/*.jpg
+public/*.gif
+public/*.webm
+public/*.png
+public/*.jpeg
 # idea of above being to avoid big files

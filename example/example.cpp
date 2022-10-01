@@ -9,10 +9,25 @@ void app_methods::http_read_callback(http_request &&req, int client_num, bool fa
     return;
   }
 
-  std::cout << req.req_type << "\n";
   if (req.req_type == "POST") {
-  }
-  if (req.req_type == "GET") {
+    std::cout << "\n\n" << req.content_length << " is the content length\n\n";
+
+    const char str[] = "Hello world! Good to see you contact me";
+    uint8_t *buff = (uint8_t *)MALLOC(strlen(str) + 1);
+    strcpy((char *)buff, str);
+    http_response resp{http_resp_codes::RESP_200_OK, http_ver::HTTP_10, "text/plain", strlen(str)};
+
+    auto header_buff = resp.allocate_buffer();
+    auto size = resp.length();
+
+    iovec *iovs = (iovec *)MALLOC(sizeof(iovec) * 2);
+    iovs[0].iov_base = header_buff;
+    iovs[0].iov_len = size;
+    iovs[1].iov_base = buff;
+    iovs[1].iov_len = strlen(str);
+
+    ns->http_writev(client_num, iovs, 2);
+  } else if (req.req_type == "GET") {
     const auto filepath = base_file_path + "/" + req.path;
     const auto errorfilepath = base_file_path + "/404.html";
     std::cout << "filepath: " << filepath << "\n";
