@@ -4,6 +4,26 @@
 bool network_server::http_response_method(int pfd, buff_data data, bool failed_req) {
   http_request req{reinterpret_cast<char *>(data.buffer)};
 
+  if (req.req_type == "POST") {
+    if (req.content_length) {
+      size_t content_len = std::atoi(req.content_length);
+      if (req.content) {
+        size_t acutal_content_len = strlen(req.content);
+        if (acutal_content_len == content_len) {
+          // full body already sent
+        } else if (acutal_content_len < content_len) {
+          // need to send another read request to get the full body
+        }
+      } else if (content_len != 0) {
+        // has no body but content length isn't 0, close connection
+        return false;
+      }
+    } else {
+      // invalid post request, close the connection
+      return false;
+    }
+  }
+
   if (req.valid_req) {
     callbacks->http_read_callback(std::move(req), pfd, failed_req);
     return true;

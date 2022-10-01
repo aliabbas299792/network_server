@@ -39,12 +39,15 @@ public:
   char *accept{};
   char *accept_language{};
   char *accept_encoding{};
+  char *content_length{};
+  char *content_type{};
   char *dnt{};
   char *connection{};
   char *upgrade_insecure_requests{};
   char *upgrade{};
   char *sec_websocket_key{};
   char *x_forwarded_for{};
+  char *content{};
 
   ranges get_ranges(size_t max_size) const;
 

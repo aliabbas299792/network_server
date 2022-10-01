@@ -103,6 +103,10 @@ void http_request::http_header_parser(char *token_str) {
     this->accept_language = val_ptr;
   } else if (strcmp(header_key, "Accept-Encoding") == 0) {
     this->accept_encoding = val_ptr;
+  } else if (strcmp(header_key, "Content-Length") == 0) {
+    this->content_length = val_ptr;
+  } else if (strcmp(header_key, "Content-Type") == 0) {
+    this->content_type = val_ptr;
   } else if (strcmp(header_key, "DNT") == 0) {
     this->dnt = val_ptr;
   } else if (strcmp(header_key, "Connection") == 0) {
@@ -124,6 +128,17 @@ void http_request::http_header_parser(char *token_str) {
 http_request::http_request(char *buff) {
   if (!buff)
     return;
+
+  const char doublebreak[] = "\r\n\r\n";
+  const char doublebreak_len = strlen(doublebreak);
+  this->content = strstr(buff, doublebreak);
+
+  if (this->content != nullptr && strlen(this->content) > doublebreak_len) {
+    *this->content = '\0';            // to delimit
+    this->content += doublebreak_len; // should point to content now
+  } else {
+    this->content = nullptr;
+  }
 
   char *buff_ptr = buff;
   char *save_ptr;

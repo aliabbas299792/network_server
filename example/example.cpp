@@ -9,12 +9,17 @@ void app_methods::http_read_callback(http_request &&req, int client_num, bool fa
     return;
   }
 
-  const auto filepath = base_file_path + "/" + req.path;
-  const auto errorfilepath = base_file_path + "/404.html";
-  std::cout << "filepath: " << filepath << "\n";
-  auto ret = ns->http_send_file(client_num, filepath.c_str(), errorfilepath.c_str(), req);
+  std::cout << req.req_type << "\n";
+  if (req.req_type == "POST") {
+  }
+  if (req.req_type == "GET") {
+    const auto filepath = base_file_path + "/" + req.path;
+    const auto errorfilepath = base_file_path + "/404.html";
+    std::cout << "filepath: " << filepath << "\n";
+    auto ret = ns->http_send_file(client_num, filepath.c_str(), errorfilepath.c_str(), req);
 
-  std::cout << "ret is: " << ret << "\n";
+    std::cout << "ret is: " << ret << "\n";
+  }
 }
 
 void app_methods::raw_read_callback(buff_data data, int client_num, bool failed_req) {}
