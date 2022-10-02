@@ -60,7 +60,7 @@ struct task {
 
   std::vector<range> write_ranges{};
   int write_ranges_idx{};
-  std::string file_type{};
+  std::string filepath{};
   void *additional_ptr{};
 
   uint64_t for_client_num = -1; // which client it is for

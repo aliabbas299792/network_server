@@ -14,11 +14,13 @@ void network_server::http_send_file_submit_writev(uint64_t pfd, uint64_t task_id
   size_t resp_len{};
   if (using_ranges) {
     http_response resp{http_resp_codes::RESP_206_PARTIAL, http_ver::HTTP_10,
-                       task.write_ranges[task.write_ranges_idx], task.file_type, task.buff_length};
+                       task.write_ranges[task.write_ranges_idx],
+                       http_response::get_type_from_filename(task.filepath), task.buff_length};
     resp_data = resp.allocate_buffer();
     resp_len = resp.length();
   } else {
-    http_response resp{http_resp_codes::RESP_200_OK, http_ver::HTTP_10, task.file_type, task.buff_length};
+    http_response resp{http_resp_codes::RESP_200_OK, http_ver::HTTP_10,
+                       http_response::get_type_from_filename(task.filepath), task.buff_length};
     resp_data = resp.allocate_buffer();
     resp_len = resp.length();
   }
@@ -75,7 +77,8 @@ void network_server::http_send_file_writev(uint64_t pfd, uint64_t task_id) {
     size_t resp_len{};
 
     http_response resp{http_resp_codes::RESP_206_PARTIAL, http_ver::HTTP_10,
-                       task.write_ranges[task.write_ranges_idx], task.file_type, task.buff_length};
+                       task.write_ranges[task.write_ranges_idx],
+                       http_response::get_type_from_filename(task.filepath), task.buff_length};
     resp_data = resp.allocate_buffer();
     resp_len = resp.length();
 
@@ -129,15 +132,6 @@ int network_server::http_send_file(int client_num, const char *filepath, const c
   task.buff_length = size;
   task.op_type = operation_type::HTTP_SEND_FILE;
 
-  std::string type = "text/html";
-  if (filepath_str.ends_with(".mp4")) {
-    type = "video/mp4";
-  } else if (filepath_str.ends_with(".jpg")) {
-    type = "image/jpg";
-  } else if (filepath_str.ends_with(".gif")) {
-    type = "image/gif";
-  }
-
   bool valid_range = true;
   if (!file_not_found) {
     task.write_ranges = req.get_ranges(size, &valid_range);
@@ -155,10 +149,7 @@ int network_server::http_send_file(int client_num, const char *filepath, const c
   }
 
   task.buff = (uint8_t *)MALLOC(size);
-
-  task.file_type = type;
-
-  std::cout << "task filetype: " << task.file_type << ", file size: " << size << "\n";
+  task.filepath = filepath;
 
   return ev->submit_read(file_num, task.buff, size, file_task_id);
 }
