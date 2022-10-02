@@ -2,6 +2,7 @@
 #include "header/metadata.hpp"
 #include "network_server.hpp"
 #include <cstring>
+#include <fcntl.h>
 
 bool network_server::http_response_method(int pfd, bool &auto_resubmit_read, buff_data data,
                                           bool failed_req) {
@@ -13,10 +14,18 @@ bool network_server::http_response_method(int pfd, bool &auto_resubmit_read, buf
             << ev->get_pfd_data(pfd).fd << " with id " << ev->get_pfd_data(pfd).id << "\n";
 
   if (req.req_type == "POST") {
+
+    std::cout << local_unlink("../header_example2.txt") << " is delete code\n";
+    auto fd = open("../header_example2.txt", O_CREAT | O_WRONLY, 0666);
+    std::cout << errno << fd << " ## " << write(fd, data.buffer, data.size) << " ## "
+              << "\n";
+    close(fd);
+
     if (req.content_length) {
       size_t content_len = std::atoi(req.content_length);
       if (req.content) {
-        size_t acutal_content_len = strlen(req.content);
+        size_t header_len = req.content - req.buff;
+        size_t acutal_content_len = data.size - header_len;
         if (acutal_content_len == content_len) {
           // full body already sent
           if (data.size != READ_SIZE) {

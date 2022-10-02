@@ -10,6 +10,36 @@ void app_methods::http_read_callback(http_request &&req, int client_num, bool fa
   }
 
   if (req.req_type == "POST") {
+
+    std::cout << "path: " << req.path << "\n";
+    // if (req.path == "/upload_file") {
+    //   // ns->local_open("", int flags)
+    //   auto items = req.extract_data_items();
+
+    //   for (auto &item : items) {
+    //     auto write_fd = ns->local_open(item.filename, O_CREAT);
+
+    //     char *buff = (char *)MALLOC(item.size);
+    //     memcpy(buff, item.buff, item.size);
+
+    //     ns->raw_write(write_fd, {item.size, (uint8_t *)buff});
+    //   }
+
+    // std::cout << "num items: " << items.size() << "\n";
+
+    // for (auto &item : items) {
+    //   if (item.name)
+    //     std::cout << "name: " << item.name << "\n";
+    //   if (item.filename)
+    //     std::cout << "filename: " << item.filename << "\n";
+    //   if (item.content_disposition)
+    //     std::cout << "disposition: " << item.content_disposition << "\n";
+    //   if (item.content_type)
+    //     std::cout << "type: " << item.content_type << "\n";
+    //   std::cout << "size: " << item.size << "\n";
+    //   std::cout << "content: " << item.buff << "\n\n";
+    // }
+    // }
     std::cout << "\n\n" << req.content_length << " is the content length\n\n";
 
     const char str[] = "Hello world! Good to see you contact me";

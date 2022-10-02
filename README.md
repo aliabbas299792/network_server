@@ -68,9 +68,9 @@ A simple library which can be used to write a web server.
   - The client was closed, deal with cleanup
 
 # Todo
-- add in support for POSTing large amounts of data
-  1. basically detect if it's a POST request and continue reading until you can get no more
-  2. read the POST request and perform whatever actions on it
+- fix POSTing multipart data, fix extract files thing
+  1. do this by fixing test.cpp
+- potentially fix ranges send
 - add in TLS support
 - The network server should be able to load in the `event_manager` library dynamically, instantiate it, start it, and replace an older version with a newer version.
 - Similarly the application stuff should be able to do the same for the `network_server`.

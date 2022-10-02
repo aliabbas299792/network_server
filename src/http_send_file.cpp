@@ -135,13 +135,20 @@ int network_server::http_send_file(int client_num, const char *filepath, const c
   std::string type = "text/html";
   if (filepath_str.ends_with(".mp4")) {
     type = "video/mp4";
-  }
-  if (filepath_str.ends_with(".jpg")) {
+  } else if (filepath_str.ends_with(".jpg")) {
     type = "image/jpg";
+  } else if (filepath_str.ends_with(".gif")) {
+    type = "image/gif";
   }
 
   if (!file_not_found) {
     task.write_ranges = req.get_ranges(size);
+
+    std::cout << task.write_ranges.array_len << " is number of ranges\n";
+    for (int i = 0; i < task.write_ranges.array_len; i++) {
+      auto &r = task.write_ranges.ranges_array[i];
+      std::cout << r.start << " -- " << r.end << "\n";
+    }
   }
 
   task.file_type = type;

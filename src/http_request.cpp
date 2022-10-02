@@ -88,7 +88,7 @@ void http_request::http_header_parser(char *token_str) {
 
   int header_value_str_len = strlen(header_value);
 
-  char *val_ptr = strrchr(header_value, ' ') + 1;
+  char *val_ptr = strchr(header_value, ' ') + 1;
   if (val_ptr >= header_value + header_value_str_len) {
     return;
   }
@@ -120,8 +120,7 @@ void http_request::http_header_parser(char *token_str) {
   } else if (strcmp(header_key, "X-Forwarded-For") == 0) {
     this->x_forwarded_for = val_ptr;
   } else if (strcmp(header_key, "Range") == 0) {
-    this->range_str = (char *)MALLOC(strlen(val_ptr) + 1);
-    strcpy(this->range_str, val_ptr);
+    this->range_str = val_ptr;
   }
 }
 
@@ -156,13 +155,27 @@ http_request::http_request(char *original_buff, size_t length) {
   while ((tok_ptr = strtok_r(buff_ptr, "\r\n", &save_ptr)) != nullptr) {
     http_header_parser(tok_ptr);
   }
+
+  if (this->content_type) {
+    const char boundary_tok[] = "boundary=";
+    auto boundary_ptr = strstr(this->content_type, boundary_tok);
+    if (boundary_ptr) {
+      if ((boundary_ptr - 2) > this->content_type) {
+        *(boundary_ptr - 2) = '\0'; // null character to end the content_type string
+      }
+      const char *boundary = (boundary_ptr + strlen(boundary_tok));
+      this->boundary = "--";
+      this->boundary += boundary;
+      this->boundary += "\r\n";
+      this->boundary_last = this->boundary;
+      this->boundary_last += "--";
+    }
+  }
 }
 
 http_request::~http_request() {
-  FREE(range_str);
   FREE(buff);
   buff = nullptr;
-  range_str = nullptr;
 }
 
 ranges http_request::get_ranges(size_t max_size) const {
@@ -174,13 +187,13 @@ ranges http_request::get_ranges(size_t max_size) const {
 }
 
 bool http_request::range_parse(size_t max_size, range **ranges, size_t *ranges_len) const {
-  if (!range_str)
+  if (range_str.length() == 0)
     return false;
-  if (strncmp(range_str, "none", strlen("none")) == 0)
+  if (range_str == "none")
     return false; // no range supported
 
   size_t num_commas = 0;
-  for (size_t i = 0; i < strlen(range_str); i++)
+  for (size_t i = 0; i < range_str.length(); i++)
     if (range_str[i] == ',')
       num_commas++;
 
@@ -188,9 +201,9 @@ bool http_request::range_parse(size_t max_size, range **ranges, size_t *ranges_l
   *ranges = (range *)MALLOC(sizeof(range) * (*ranges_len));
 
   int bytes_len = strlen("bytes=");
-  int cpy_len = strlen(range_str) - bytes_len + 1; // +1 for null terminator
+  int cpy_len = range_str.length() - bytes_len + 1; // +1 for null terminator
   char *range_cpy = new char[cpy_len];
-  memcpy(range_cpy, range_str + bytes_len, cpy_len);
+  memcpy(range_cpy, range_str.c_str() + bytes_len, cpy_len);
 
   int ranges_idx = 0;
 
@@ -210,11 +223,15 @@ bool http_request::range_parse(size_t max_size, range **ranges, size_t *ranges_l
         return false;
       if (!range_end) {
         r.end = (max_size - 1);
+
+        if (r.end > max_size - 1) {
+          r.end = max_size;
+        }
       } else {
-        std::cout << "\n\n\t\trange str: |" << range_str << "|\n";
-        std::cout << "\t\trange start: |" << r.start << "|\n";
-        std::cout << "\t\trange end is nullptr: |" << (range_end == nullptr) << "|\n";
-        std::cout << "\t\trange end len: |" << strlen(range_end) << "|\n\n";
+        // std::cout << "\n\n\t\trange str: |" << range_str << "|\n";
+        // std::cout << "\t\trange start: |" << r.start << "|\n";
+        // std::cout << "\t\trange end is nullptr: |" << (range_end == nullptr) << "|\n";
+        // std::cout << "\t\trange end len: |" << strlen(range_end) << "|\n\n";
         r.end = std::atoi(range_end);
         if (*range_end != '0' && r.end == 0)
           return false;
