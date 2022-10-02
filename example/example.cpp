@@ -2,6 +2,7 @@
 #include <bits/types/struct_iovec.h>
 #include <cstdint>
 #include <fcntl.h>
+#include <string>
 #include <unistd.h>
 
 void app_methods::http_read_callback(http_request &&req, int client_num, bool failed_req) {
@@ -12,34 +13,28 @@ void app_methods::http_read_callback(http_request &&req, int client_num, bool fa
   if (req.req_type == "POST") {
 
     std::cout << "path: " << req.path << "\n";
-    // if (req.path == "/upload_file") {
-    //   // ns->local_open("", int flags)
-    //   auto items = req.extract_data_items();
+    if (req.path == "/upload_file") {
+      auto items = req.extract_post_data_items();
 
-    //   for (auto &item : items) {
-    //     auto write_fd = ns->local_open(item.filename, O_CREAT);
+      for (auto &item : items) {
+        auto write_path = base_file_path + "/" + item.filename;
+        auto write_fd = open(write_path.c_str(), O_CREAT | O_WRONLY, 0666);
+        write(write_fd, item.buff, item.size);
+        close(write_fd);
 
-    //     char *buff = (char *)MALLOC(item.size);
-    //     memcpy(buff, item.buff, item.size);
+        if (item.name)
+          std::cout << "name: " << item.name << "\n";
+        if (item.filename)
+          std::cout << "filename: " << item.filename << "\n";
+        if (item.content_disposition)
+          std::cout << "disposition: " << item.content_disposition << "\n";
+        if (item.content_type)
+          std::cout << "type: " << item.content_type << "\n";
+        std::cout << "size: " << item.size << "\n\n";
+      }
 
-    //     ns->raw_write(write_fd, {item.size, (uint8_t *)buff});
-    //   }
-
-    // std::cout << "num items: " << items.size() << "\n";
-
-    // for (auto &item : items) {
-    //   if (item.name)
-    //     std::cout << "name: " << item.name << "\n";
-    //   if (item.filename)
-    //     std::cout << "filename: " << item.filename << "\n";
-    //   if (item.content_disposition)
-    //     std::cout << "disposition: " << item.content_disposition << "\n";
-    //   if (item.content_type)
-    //     std::cout << "type: " << item.content_type << "\n";
-    //   std::cout << "size: " << item.size << "\n";
-    //   std::cout << "content: " << item.buff << "\n\n";
-    // }
-    // }
+      std::cout << "num items: " << items.size() << "\n";
+    }
     std::cout << "\n\n" << req.content_length << " is the content length\n\n";
 
     const char str[] = "Hello world! Good to see you contact me";
@@ -69,7 +64,14 @@ void app_methods::http_read_callback(http_request &&req, int client_num, bool fa
 
 void app_methods::raw_read_callback(buff_data data, int client_num, bool failed_req) {}
 
-void app_methods::http_write_callback(buff_data data, int client_num, bool failed_req) {}
+void app_methods::http_write_callback(buff_data data, int client_num, bool failed_req) {
+  if (failed_req) {
+    FREE(data.buffer);
+    return;
+  }
+
+  FREE(data.buffer);
+}
 
 void app_methods::http_writev_callback(struct iovec *data, size_t num_iovecs, int client_num,
                                        bool failed_req) {

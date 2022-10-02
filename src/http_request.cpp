@@ -124,6 +124,100 @@ void http_request::http_header_parser(char *token_str) {
   }
 }
 
+const std::vector<post_content> &http_request::extract_post_data_items() {
+  if (boundary_str == "" || boundary_last_str == "")
+    return items;
+
+  auto boundary = boundary_str.c_str();
+  auto boundary_last = boundary_last_str.c_str();
+  size_t content_length_num = std::atoi(content_length);
+
+  if (content_length_num == 0)
+    return items;
+
+  void *item_ptr = content;
+  char *max_ptr = (char *)item_ptr + content_length_num - 1;
+
+  while ((item_ptr = memmem(item_ptr, max_ptr - (char *)item_ptr, boundary, boundary_str.size())) !=
+         nullptr) {
+    item_ptr = (char *)item_ptr + boundary_str.size(); // increment past the boundary
+    char *data_ptr = (char *)item_ptr;
+
+    if (data_ptr < max_ptr) {
+      const char content_disposition_key[] = "Content-Disposition: ";
+      const char name_key[] = "name=\"";
+      const char filename_key[] = "filename=\"";
+      const char content_type_key[] = "Content-Type: ";
+
+      post_content data{};
+
+      char *next =
+          reinterpret_cast<char *>(memmem(data_ptr, max_ptr - data_ptr, boundary, boundary_str.size()));
+      if (!next) {
+        next = reinterpret_cast<char *>(
+            memmem(data_ptr, max_ptr - data_ptr, boundary_last, boundary_last_str.size()));
+        if (!next)
+          next = max_ptr;
+      }
+      *(next - break_len) = '\0'; // inserts null character before next section
+
+      size_t current_section_length = (next - break_len) - data_ptr - 1; // -1 for the null character
+
+      void *substr_ptr{};
+
+      if ((substr_ptr = memmem(item_ptr, max_ptr - data_ptr, double_CRLF, double_break_len)) != nullptr) {
+        char *substr_data_ptr = (char *)substr_ptr;
+        substr_data_ptr += double_break_len;
+        data.buff = reinterpret_cast<uint8_t *>(substr_data_ptr);
+        data.size = next - substr_data_ptr - break_len;
+      }
+
+      if ((substr_ptr = memmem(data_ptr, current_section_length, content_disposition_key,
+                               strlen(content_disposition_key))) != nullptr) {
+        char *substr_data_ptr = (char *)substr_ptr;
+        substr_data_ptr += strlen(content_disposition_key);
+        data.content_disposition = substr_data_ptr;
+        if ((substr_data_ptr = strchr(substr_data_ptr, ';')) != nullptr) {
+          *substr_data_ptr = '\0';
+        }
+      }
+
+      if ((substr_ptr = memmem(data_ptr, current_section_length, name_key, strlen(name_key))) != nullptr) {
+        char *substr_data_ptr = (char *)substr_ptr;
+        substr_data_ptr += strlen(name_key);
+        data.name = substr_data_ptr;
+        if ((substr_data_ptr = strchr(substr_data_ptr, '"')) != nullptr) {
+          *substr_data_ptr = '\0';
+        }
+      }
+
+      if ((substr_ptr = memmem(data_ptr, current_section_length, filename_key, strlen(filename_key))) !=
+          nullptr) {
+        char *substr_data_ptr = (char *)substr_ptr;
+        substr_data_ptr += strlen(filename_key);
+        data.filename = substr_data_ptr;
+        if ((substr_data_ptr = strchr(substr_data_ptr, '"')) != nullptr) {
+          *substr_data_ptr = '\0';
+        }
+      }
+
+      if ((substr_ptr = memmem(data_ptr, current_section_length, content_type_key,
+                               strlen(content_type_key))) != nullptr) {
+        char *substr_data_ptr = (char *)substr_ptr;
+        substr_data_ptr += strlen(content_type_key);
+        data.content_type = substr_data_ptr;
+        if ((substr_data_ptr = strchr(substr_data_ptr, '\n')) != nullptr) {
+          *substr_data_ptr = '\0';
+        }
+      }
+
+      items.push_back(data);
+    }
+  }
+
+  return items;
+}
+
 http_request::http_request(char *original_buff, size_t length) {
   if (!original_buff)
     return;
@@ -132,13 +226,11 @@ http_request::http_request(char *original_buff, size_t length) {
   this->buff = (char *)MALLOC(length + 1); // +1 for '\0' at the end
   memcpy(this->buff, original_buff, length);
 
-  const char doublebreak[] = "\r\n\r\n";
-  const char doublebreak_len = strlen(doublebreak);
-  this->content = strstr(buff, doublebreak);
+  this->content = strstr(buff, double_CRLF);
 
-  if (this->content != nullptr && strlen(this->content) > doublebreak_len) {
-    *this->content = '\0';            // to delimit
-    this->content += doublebreak_len; // should point to content now
+  if (this->content != nullptr && (this->content - this->buff) > (int64_t)double_break_len) {
+    *this->content = '\0';             // to delimit
+    this->content += double_break_len; // should point to content now
   } else {
     this->content = nullptr;
   }
@@ -158,17 +250,21 @@ http_request::http_request(char *original_buff, size_t length) {
 
   if (this->content_type) {
     const char boundary_tok[] = "boundary=";
-    auto boundary_ptr = strstr(this->content_type, boundary_tok);
-    if (boundary_ptr) {
-      if ((boundary_ptr - 2) > this->content_type) {
-        *(boundary_ptr - 2) = '\0'; // null character to end the content_type string
-      }
-      const char *boundary = (boundary_ptr + strlen(boundary_tok));
-      this->boundary = "--";
-      this->boundary += boundary;
-      this->boundary += "\r\n";
-      this->boundary_last = this->boundary;
-      this->boundary_last += "--";
+    char *boundary_ptr = strstr((char *)this->content_type, boundary_tok);
+
+    if (boundary_ptr && boundary_ptr + strlen(boundary_tok) < buff + length) {
+      boundary_ptr += strlen(boundary_tok);
+      auto ptr_if_space = strchr(boundary_ptr, ' ');
+      auto ptr_if_end_of_str = boundary_ptr + strlen(boundary_ptr);
+
+      auto end_ptr = ptr_if_end_of_str;
+      if (!ptr_if_space)
+        end_ptr = ptr_if_end_of_str;
+
+      boundary_str = "--";
+      boundary_str += std::string(boundary_ptr, end_ptr - boundary_ptr);
+      boundary_last_str = boundary_str + "--";
+      boundary_str += CRLF;
     }
   }
 }

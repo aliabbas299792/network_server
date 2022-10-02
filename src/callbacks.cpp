@@ -158,9 +158,6 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
     auto &task = task_data[task_id];
     auto total_progress = task.progress + read_metadata.op_res_num;
     if (total_progress < task.buff_length) {
-      std::cout << "read callback triggered " << ev->get_pfd_data(pfd).fd << " ## "
-                << ev->get_pfd_data(pfd).id << ", (buff len, total progress) = (" << task.buff_length << ", "
-                << total_progress << ")\n";
       ev->submit_read(pfd, &task.buff[total_progress], task.buff_length - total_progress, task_id);
       task.progress = total_progress;
       return;
@@ -172,8 +169,6 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
         // read entire post request
         data.buffer = task_data[task_id].buff;
         data.size = total_progress;
-
-        std::cout << "hello what is ur size? " << total_progress << "\n";
 
         bool auto_resubmit_read = true;
         network_read_procedure(pfd, task_id, auto_resubmit_read, false, data);
@@ -192,7 +187,6 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
           // free this task if we're not auto re-reading
           FREE(task.buff);
           free_task(task_id);
-          std::cout << "freed the old buff aaaaaaaa\n";
         }
       } else {
         data.buffer = task_data[task_id].buff;

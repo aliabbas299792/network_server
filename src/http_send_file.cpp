@@ -143,12 +143,6 @@ int network_server::http_send_file(int client_num, const char *filepath, const c
 
   if (!file_not_found) {
     task.write_ranges = req.get_ranges(size);
-
-    std::cout << task.write_ranges.array_len << " is number of ranges\n";
-    for (int i = 0; i < task.write_ranges.array_len; i++) {
-      auto &r = task.write_ranges.ranges_array[i];
-      std::cout << r.start << " -- " << r.end << "\n";
-    }
   }
 
   task.file_type = type;
