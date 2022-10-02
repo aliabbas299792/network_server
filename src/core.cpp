@@ -64,11 +64,6 @@ int network_server::get_task(operation_type type, struct iovec *iovecs, size_t n
     task.buff = reinterpret_cast<uint8_t *>(iovecs);
     task.num_iovecs = num_iovecs;
 
-    task.buff_length = 0;
-    for (size_t i = 0; i < num_iovecs; i++) {
-      task.buff_length += iovecs[i].iov_len;
-    }
-
     // will store the original iovecs so we can free them later
     // the buffer stuff is set using this as reference
     task.iovs = (struct iovec *)MALLOC(num_iovecs * sizeof(iovec));
