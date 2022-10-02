@@ -13,7 +13,15 @@ constexpr const char *CRLF = "\r\n";
 constexpr const char *websocket_magic_key = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 enum class http_ver { HTTP_10, HTTP_11 };
-enum class http_resp_codes { RESP_101, RESP_200_OK, RESP_206_PARTIAL, RESP_404, RESP_502, RESP_505 };
+enum class http_resp_codes {
+  RESP_101,
+  RESP_200_OK,
+  RESP_206_PARTIAL,
+  RESP_404,
+  RESP_416_UNSATISFIABLE_RANGE,
+  RESP_502,
+  RESP_505
+};
 
 class http_response {
 private:
@@ -43,6 +51,9 @@ private:
     case http_resp_codes::RESP_404:
       http_start_line += "Not Found";
       break;
+    case http_resp_codes::RESP_416_UNSATISFIABLE_RANGE:
+      http_start_line += "416 Range Not Satisfiable";
+      break;
     case http_resp_codes::RESP_502:
       http_start_line += "Bad Gateway";
       break;
@@ -59,7 +70,6 @@ private:
     header += CRLF;
 
     switch (response_code) {
-
     case http_resp_codes::RESP_101:
       header += "Upgrade: websocket";
       header += CRLF;
@@ -79,6 +89,7 @@ private:
       header += "Keep-Alive: timeout=0, max=0";
       header += CRLF;
     case http_resp_codes::RESP_206_PARTIAL:
+    case http_resp_codes::RESP_416_UNSATISFIABLE_RANGE:
     case http_resp_codes::RESP_502:
     case http_resp_codes::RESP_505:
       break;

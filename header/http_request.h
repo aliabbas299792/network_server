@@ -16,11 +16,6 @@ struct range {
   size_t end{};
 };
 
-struct ranges {
-  range *ranges_array{};
-  size_t array_len{};
-};
-
 struct post_content {
   const char *name{};
   const char *filename{};
@@ -43,7 +38,7 @@ private:
   std::string boundary_last_str{};
 
   std::string range_str{};
-  bool range_parse(size_t max_size, range **ranges, size_t *ranges_len) const;
+  bool range_parse(size_t max_size, range **ranges, size_t *ranges_len, bool *valid_range) const;
 
   void req_type_data_parser(char *token_str);
   void http_header_parser(char *token_str);
@@ -73,7 +68,7 @@ public:
 
   char *buff{};
 
-  ranges get_ranges(size_t max_size) const;
+  std::vector<range> get_ranges(size_t max_size, bool *valid_range) const;
   const std::vector<post_content> &extract_post_data_items();
 
   bool valid_req = true; // assume it is valid from start

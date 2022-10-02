@@ -58,7 +58,7 @@ struct task {
   struct iovec *iovs{};   // for storing original iovecs
   size_t num_iovecs = -1; // for writev
 
-  ranges write_ranges{};
+  std::vector<range> write_ranges{};
   int write_ranges_idx{};
   std::string file_type{};
   void *additional_ptr{};

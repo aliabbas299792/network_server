@@ -8,14 +8,13 @@ void network_server::http_send_file_submit_writev(uint64_t pfd, uint64_t task_id
   auto client_pfd = task.for_client_num;
   task.for_client_num = -1;
 
-  const bool using_ranges = task.write_ranges.array_len != 0 &&
-                            static_cast<size_t>(task.write_ranges_idx) < task.write_ranges.array_len;
+  const bool using_ranges =
+      task.write_ranges.size() != 0 && static_cast<size_t>(task.write_ranges_idx) < task.write_ranges.size();
   char *resp_data{};
   size_t resp_len{};
   if (using_ranges) {
     http_response resp{http_resp_codes::RESP_206_PARTIAL, http_ver::HTTP_10,
-                       task.write_ranges.ranges_array[task.write_ranges_idx], task.file_type,
-                       task.buff_length};
+                       task.write_ranges[task.write_ranges_idx], task.file_type, task.buff_length};
     resp_data = resp.allocate_buffer();
     resp_len = resp.length();
   } else {
@@ -28,7 +27,7 @@ void network_server::http_send_file_submit_writev(uint64_t pfd, uint64_t task_id
   vecs[0].iov_base = resp_data;
   vecs[0].iov_len = resp_len;
   if (using_ranges) {
-    auto &first_range = task.write_ranges.ranges_array[task.write_ranges_idx];
+    auto &first_range = task.write_ranges[task.write_ranges_idx];
     vecs[1].iov_base = &task.buff[first_range.start];
     vecs[1].iov_len = first_range.end - first_range.start;
   } else {
@@ -52,7 +51,6 @@ void network_server::http_send_file_submit_writev(uint64_t pfd, uint64_t task_id
 
 void network_server::http_send_file_read_failed(uint64_t pfd, uint64_t task_id) {
   auto &task = task_data[task_id];
-  FREE(task.write_ranges.ranges_array);
   FREE(task.buff);
   callbacks->http_writev_callback(nullptr, 0, pfd, true);
 }
@@ -60,11 +58,10 @@ void network_server::http_send_file_read_failed(uint64_t pfd, uint64_t task_id) 
 void network_server::http_send_file_writev_finish(uint64_t pfd, uint64_t task_id, bool failed_req) {
   auto &task = task_data[task_id];
   auto original_iovs_ptr = reinterpret_cast<iovec *>(task.buff);
-  FREE(original_iovs_ptr[0].iov_base);  // frees the header
-  FREE(task.buff);                      // frees the original iovec
-  FREE(task.write_ranges.ranges_array); // frees the range data
-  FREE(task.iovs);                      // frees the iovec copy
-  FREE(task.additional_ptr);            // frees the data that was read
+  FREE(original_iovs_ptr[0].iov_base); // frees the header
+  FREE(task.buff);                     // frees the original iovec
+  FREE(task.iovs);                     // frees the iovec copy
+  FREE(task.additional_ptr);           // frees the data that was read
   callbacks->http_writev_callback(nullptr, 0, pfd);
 }
 
@@ -72,18 +69,17 @@ void network_server::http_send_file_writev(uint64_t pfd, uint64_t task_id) {
   auto &task = task_data[task_id];
   auto original_iovs_ptr = reinterpret_cast<iovec *>(task.buff);
 
-  if (task.write_ranges.array_len != 0 &&
-      static_cast<size_t>(task.write_ranges_idx) < task.write_ranges.array_len) {
+  if (task.write_ranges.size() != 0 &&
+      static_cast<size_t>(task.write_ranges_idx) < task.write_ranges.size()) {
     char *resp_data{};
     size_t resp_len{};
 
     http_response resp{http_resp_codes::RESP_206_PARTIAL, http_ver::HTTP_10,
-                       task.write_ranges.ranges_array[task.write_ranges_idx], task.file_type,
-                       task.buff_length};
+                       task.write_ranges[task.write_ranges_idx], task.file_type, task.buff_length};
     resp_data = resp.allocate_buffer();
     resp_len = resp.length();
 
-    auto &write_range = task.write_ranges.ranges_array[task.write_ranges_idx];
+    auto &write_range = task.write_ranges[task.write_ranges_idx];
     task.write_ranges_idx++; // writing the first range
 
     FREE(original_iovs_ptr[0].iov_base); // frees the previous header
@@ -126,11 +122,12 @@ int network_server::http_send_file(int client_num, const char *filepath, const c
   struct stat sb {};
   local_fstat(file_num, &sb);
   const size_t size = sb.st_size;
-  uint8_t *buff = (uint8_t *)MALLOC(size);
 
-  auto file_task_id = get_task(operation_type::HTTP_SEND_FILE, buff, size);
+  auto file_task_id = get_task();
   auto &task = task_data[file_task_id];
   task.for_client_num = client_num;
+  task.buff_length = size;
+  task.op_type = operation_type::HTTP_SEND_FILE;
 
   std::string type = "text/html";
   if (filepath_str.ends_with(".mp4")) {
@@ -141,13 +138,27 @@ int network_server::http_send_file(int client_num, const char *filepath, const c
     type = "image/gif";
   }
 
+  bool valid_range = true;
   if (!file_not_found) {
-    task.write_ranges = req.get_ranges(size);
+    task.write_ranges = req.get_ranges(size, &valid_range);
   }
+
+  if (!valid_range) {
+    close_pfd_gracefully(file_num);
+    free_task(file_task_id);
+
+    http_response resp{http_resp_codes::RESP_416_UNSATISFIABLE_RANGE, http_ver::HTTP_10, "text/html", 0};
+    auto buff = resp.allocate_buffer();
+    std::cout << "buff len is: " << resp.length() << "\n";
+    http_write(client_num, buff, resp.length());
+    return 0;
+  }
+
+  task.buff = (uint8_t *)MALLOC(size);
 
   task.file_type = type;
 
   std::cout << "task filetype: " << task.file_type << ", file size: " << size << "\n";
 
-  return ev->submit_read(file_num, buff, size, file_task_id);
+  return ev->submit_read(file_num, task.buff, size, file_task_id);
 }

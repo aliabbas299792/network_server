@@ -280,9 +280,14 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
     return;
   }
 
+  size_t full_write_size = 0;
+  for (size_t i = 0; i < task.num_iovecs; i++) {
+    full_write_size += original_iovs_ptr[i].iov_len;
+  }
+
   auto total_progress = task.progress + write_metadata.op_res_num;
 
-  if (total_progress >= task.buff_length) {
+  if (total_progress >= full_write_size) {
     switch (task.op_type) {
     case HTTP_SEND_FILE: {
       http_send_file_writev(pfd, task_id);
@@ -341,7 +346,12 @@ void network_server::readv_callback(processed_data_vecs read_metadata, uint64_t 
 
   auto total_progress = task.progress + read_metadata.op_res_num;
 
-  if (total_progress >= task.buff_length) {
+  size_t full_write_size = 0;
+  for (size_t i = 0; i < task.num_iovecs; i++) {
+    full_write_size += original_iovs_ptr[i].iov_len;
+  }
+
+  if (total_progress >= full_write_size) {
     callbacks->raw_readv_callback(original_iovs_ptr, task.num_iovecs, pfd);
     close_pfd_gracefully(pfd, task_id); // task_id freed here
     FREE(task.iovs);                    // readv allocates some memory in get_task(...)
@@ -436,6 +446,7 @@ void network_server::write_callback(processed_data write_metadata, uint64_t pfd,
 
     switch (task.op_type) {
     case HTTP_WRITE:
+      std::cout << (int64_t)task.buff << "\n";
       callbacks->http_write_callback(data, pfd);
       close_pfd_gracefully(pfd, task_id);
       break;

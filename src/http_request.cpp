@@ -274,38 +274,24 @@ http_request::~http_request() {
   buff = nullptr;
 }
 
-ranges http_request::get_ranges(size_t max_size) const {
-  range *rs{};
-  size_t rs_len{};
-  if (range_parse(max_size, &rs, &rs_len))
-    return {rs, rs_len};
-  return {};
-}
+std::vector<range> http_request::get_ranges(size_t max_size, bool *valid_range) const {
+  std::vector<range> ranges{};
 
-bool http_request::range_parse(size_t max_size, range **ranges, size_t *ranges_len) const {
   if (range_str.length() == 0)
-    return false;
+    return ranges;
   if (range_str == "none")
-    return false; // no range supported
-
-  size_t num_commas = 0;
-  for (size_t i = 0; i < range_str.length(); i++)
-    if (range_str[i] == ',')
-      num_commas++;
-
-  *ranges_len = num_commas + 1; // 0 commas implies 1 range, 1 implies 2 etc
-  *ranges = (range *)MALLOC(sizeof(range) * (*ranges_len));
+    return ranges; // no range supported
 
   int bytes_len = strlen("bytes=");
   int cpy_len = range_str.length() - bytes_len + 1; // +1 for null terminator
   char *range_cpy = new char[cpy_len];
   memcpy(range_cpy, range_str.c_str() + bytes_len, cpy_len);
 
-  int ranges_idx = 0;
-
   char *saveptr{}, *tok{}, *cpy_ptr = range_cpy;
   while ((tok = strtok_r(cpy_ptr, ", ", &saveptr))) {
     cpy_ptr = nullptr;
+
+    size_t start{}, end{};
 
     if (tok[0] != '-') {
       char *saveptr2{}, *cpy_ptr2 = tok;
@@ -313,36 +299,43 @@ bool http_request::range_parse(size_t max_size, range **ranges, size_t *ranges_l
       cpy_ptr2 = nullptr;
       char *range_end = strtok_r(cpy_ptr2, "-", &saveptr2);
 
-      auto &r = (*ranges)[ranges_idx++];
-      r.start = std::atoi(range_start);
-      if (*range_start != '0' && r.start == 0)
-        return false;
-      if (!range_end) {
-        r.end = (max_size - 1);
+      start = std::atoi(range_start);
 
-        if (r.end > max_size - 1) {
-          r.end = max_size;
+      if (start >= max_size - 1) {
+        std::cout << max_size << " is max size\n\n\n\n";
+        *valid_range = false;
+        break;
+      }
+
+      if (*range_start != '0' && start == 0)
+        break;
+      if (!range_end) {
+        end = (max_size - 1);
+
+        if (end > max_size - 1) {
+          end = max_size - 1;
         }
       } else {
         // std::cout << "\n\n\t\trange str: |" << range_str << "|\n";
         // std::cout << "\t\trange start: |" << r.start << "|\n";
         // std::cout << "\t\trange end is nullptr: |" << (range_end == nullptr) << "|\n";
         // std::cout << "\t\trange end len: |" << strlen(range_end) << "|\n\n";
-        r.end = std::atoi(range_end);
-        if (*range_end != '0' && r.end == 0)
-          return false;
+        end = std::atoi(range_end);
+        if (*range_end != '0' && end == 0)
+          break;
       }
     } else {
       if (strlen(tok) > 1) {
         size_t end_offset = std::atoi(&tok[1]);
         if (tok[1] != 0 && end_offset == 0)
-          return false;
-        auto &r = (*ranges)[ranges_idx++];
-        r.start = (max_size - 1) - end_offset;
-        r.end = (max_size - 1);
+          break;
+        start = (max_size - 1) - end_offset;
+        end = (max_size - 1);
       }
     }
+
+    ranges.emplace_back(start, end);
   }
 
-  return true;
+  return ranges;
 }
