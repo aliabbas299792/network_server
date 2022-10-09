@@ -37,12 +37,3 @@ int network_server::eventfd_trigger(int pfd) { return ev->event_alert_normally(p
 int network_server::eventfd_prepare(int pfd, uint64_t additional_info) {
   return ev->submit_generic_event(pfd, additional_info);
 }
-
-int network_server::local_open(const char *pathname, int flags) {
-  return ev->open_get_pfd_normally(pathname, flags);
-}
-int network_server::local_stat(const char *pathname, struct stat *buff) {
-  return ev->stat_normally(pathname, buff);
-}
-int network_server::local_fstat(int pfd, struct stat *buff) { return ev->fstat_normally(pfd, buff); }
-int network_server::local_unlink(const char *pathname) { return ev->unlink_normally(pathname); }

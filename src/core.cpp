@@ -176,3 +176,7 @@ void network_server::network_read_procedure(int pfd, uint64_t task_id, bool &aut
     close_pfd_gracefully(pfd, task_id);
   }
 }
+
+int network_server::pass_fd_to_network_server(int fd, bool is_network_fd) {
+  return ev->pass_fd_to_event_manager(fd, is_network_fd);
+}

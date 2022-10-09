@@ -107,23 +107,23 @@ void network_server::http_send_file_writev(uint64_t pfd, uint64_t task_id) {
 
 int network_server::http_send_file(int client_num, const char *filepath, const char *not_found_filepath,
                                    const http_request &req) {
-  size_t file_num = local_open(filepath, O_RDONLY);
+  int file_fd = open(filepath, O_RDONLY);
   bool file_not_found = false;
   std::string filepath_str = filepath;
 
-  if (static_cast<int64_t>(file_num) < 0) {
+  if (file_fd < 0) {
     file_not_found = true;
     filepath_str = not_found_filepath;
-    file_num = local_open(not_found_filepath, O_RDONLY);
+    file_fd = open(not_found_filepath, O_RDONLY);
 
-    if (static_cast<int64_t>(file_num) < 0) {
+    if (file_fd < 0) {
       std::cerr << "Error file not found\n";
-      return file_num;
+      return file_fd;
     }
   }
 
   struct stat sb {};
-  local_fstat(file_num, &sb);
+  fstat(file_fd, &sb);
   const size_t size = sb.st_size;
 
   auto file_task_id = get_task();
@@ -137,8 +137,10 @@ int network_server::http_send_file(int client_num, const char *filepath, const c
     task.write_ranges = req.get_ranges(size, &valid_range);
   }
 
+  auto file_pfd = ev->pass_fd_to_event_manager(file_fd, false);
+
   if (!valid_range) {
-    close_pfd_gracefully(file_num);
+    close_pfd_gracefully(file_pfd);
     free_task(file_task_id);
 
     http_response resp{http_resp_codes::RESP_416_UNSATISFIABLE_RANGE, http_ver::HTTP_10, "text/html", 0};
@@ -151,5 +153,5 @@ int network_server::http_send_file(int client_num, const char *filepath, const c
   task.buff = (uint8_t *)MALLOC(size);
   task.filepath = filepath;
 
-  return ev->submit_read(file_num, task.buff, size, file_task_id);
+  return ev->submit_read(file_pfd, task.buff, size, file_task_id);
 }

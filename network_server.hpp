@@ -191,10 +191,9 @@ public:
   int eventfd_trigger(int client_num);
   int eventfd_prepare(int client_num, uint64_t additional_info);
 
-  int local_open(const char *pathname, int flags);
-  int local_stat(const char *pathname, struct stat *buff);
-  int local_fstat(int client_num, struct stat *buff);
-  int local_unlink(const char *pathname);
+  // hands over responsibility of this fd to the network server
+  // returned client_num is used with other operations with the network server
+  int pass_fd_to_network_server(int fd, bool is_network_fd);
 
   void start();
 };

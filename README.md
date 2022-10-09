@@ -4,6 +4,8 @@ A simple library which can be used to write a web server.
 # Usage
 - For all methods with `bool failed_req = false` as the final parameter, this basically indicates this event failed, so use this to handle clean up operations
 - A `client_num` refers to a socket or any sort of file descriptor that is being used
+- To use network server methods with your own fd, use the pass to network server method to get a clinet number to work with
+
 ## Methods
 ### Event
 - First you make a new `eventfd` with `eventfd_open()`
@@ -12,10 +14,6 @@ A simple library which can be used to write a web server.
 
 ### Raw
 - Used with any `client_num`, same as normal `read`, `write`, `writev`, `reav` and `close` calls
-
-### Local
-- Used to do non-async operations, `local_open` (same as `open`), `local_stat` (same as `stat`), `local_fstat` (same as `fstat`) and `local_unlink` (same as `unlink`)
-- Use only these functions with the network server since they operate on/use `client_nun`s where necessary
 
 ### HTTP
 - `http_write` and `http_writev` for writing to a HTTP client, and `http_close` for closing when needed

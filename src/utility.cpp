@@ -58,7 +58,7 @@ void fatal_error(std::string error_message) {
 }
 
 int setup_listener_pfd(int port, event_manager *ev) {
-  int listener_fd{}, listener_pfd = -1;
+  int listener_fd{};
 
   int yes = true;
   addrinfo hints, *server_info, *traverser;
@@ -73,15 +73,11 @@ int setup_listener_pfd(int port, event_manager *ev) {
 
   for (traverser = server_info; traverser != NULL; traverser = traverser->ai_next) {
     // make the pfd
-    listener_pfd =
-        ev->socket_create_normally(traverser->ai_family, traverser->ai_socktype, traverser->ai_protocol);
+    listener_fd = socket(traverser->ai_family, traverser->ai_socktype, traverser->ai_protocol);
 
     if (listener_fd < 0) {
       utility::fatal_error("Opening socket for listening failed");
     }
-
-    // get actual fd
-    listener_fd = ev->get_pfd_data(listener_pfd).fd;
 
     // set socket flags
     setsockopt(listener_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
@@ -114,7 +110,7 @@ int setup_listener_pfd(int port, event_manager *ev) {
     return -1;
   }
 
-  return listener_pfd;
+  return ev->pass_fd_to_event_manager(listener_fd, true);
 }
 
 } // namespace utility
