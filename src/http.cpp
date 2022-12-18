@@ -4,8 +4,7 @@
 #include <cstring>
 #include <fcntl.h>
 
-bool network_server::http_response_method(int pfd, bool &auto_resubmit_read, buff_data data,
-                                          bool failed_req) {
+bool network_server::http_response_method(int pfd, buff_data data, bool failed_req) {
   // auto resubmit is true by default
 
   http_request req{reinterpret_cast<char *>(data.buffer), data.size};
@@ -24,8 +23,6 @@ bool network_server::http_response_method(int pfd, bool &auto_resubmit_read, buf
           if (data.size != READ_SIZE) {
             // if the buffer is bigger than the usual one, resubmit using a smaller one
             // the old buffer will be taken care of when using this flag
-            auto_resubmit_read = false;
-
             uint8_t *normal_buff = (uint8_t *)MALLOC(READ_SIZE);
             auto net_read_task_id = get_task(operation_type::NETWORK_READ, normal_buff, READ_SIZE);
             ev->submit_read(pfd, normal_buff, READ_SIZE, net_read_task_id);
@@ -33,7 +30,6 @@ bool network_server::http_response_method(int pfd, bool &auto_resubmit_read, buf
           }
         } else if (acutal_content_len < content_len) {
           // need to send another read request to get the full body
-          auto_resubmit_read = false; // we will submit a custom sized read request
           // below will contain the entire buffer
           size_t large_buff_size = (data.size - acutal_content_len) + content_len;
           std::cout << "allocating buffer of size: " << large_buff_size

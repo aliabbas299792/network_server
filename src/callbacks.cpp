@@ -84,8 +84,7 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
         break;
       }
       case operation_type::NETWORK_READ: {
-        bool auto_resubmit_read = true;
-        network_read_procedure(pfd, task_id, auto_resubmit_read, true); // failed the request
+        network_read_procedure(pfd, task_id, true); // failed the request
       }
       default:
         break;
@@ -170,24 +169,13 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
         data.buffer = task_data[task_id].buff;
         data.size = total_progress;
 
-        bool auto_resubmit_read = true;
-        network_read_procedure(pfd, task_id, auto_resubmit_read, false, data);
+        network_read_procedure(pfd, task_id, false, data);
 
         // for HTTP_SEND_FILE, auto_resubmit_read automatically converts the request to NETWORK_READ
-        if (auto_resubmit_read) {
-          auto &task = task_data[task_id];
-          task.progress = 0;
-          task.op_type = operation_type::NETWORK_READ; // reverts to normal network read instead
-          state.shutdown_done = false;
-          std::memset(task.buff, 0, task.buff_length);
-
-          ev->submit_read(pfd, task.buff, task.buff_length, task_id);
-        } else {
-          auto &task = task_data[task_id];
-          // free this task if we're not auto re-reading
-          FREE(task.buff);
-          free_task(task_id);
-        }
+        auto &task = task_data[task_id];
+        // free this task if we're not auto re-reading
+        FREE(task.buff);
+        free_task(task_id);
       } else {
         data.buffer = task_data[task_id].buff;
         data.size = total_progress;
@@ -199,33 +187,21 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
     break;
   }
   case operation_type::NETWORK_READ: {
-    auto &task = task_data[task_id];
+    auto task_progress = task_data[task_id].progress;
     size_t read_this_time = read_metadata.op_res_num; // dealt with case that this is < 0 now
     // populate the data struct with necessary and useful info
     data.buffer = read_metadata.buff;
-    data.size = read_this_time + task.progress;
+    data.size = read_this_time + task_progress;
 
-    bool auto_resubmit_read = true;
-    network_read_procedure(pfd, task_id, auto_resubmit_read, false, data);
+    network_read_procedure(pfd, task_id, false, data);
 
-    // reuse task since we're just going to read READ_SIZE bytes again
     // getting ref to task here since the vector that task refers to may reallocate due to get_task()
     // since it increases in size, so the reference may be incorrect
     // and can cause a segmentation fault
-    if (auto_resubmit_read) {
-      auto &task = task_data[task_id];
-      task.progress = 0;
-      state.shutdown_done = false;
-      std::memset(task.buff, 0, task.buff_length);
-
-      ev->submit_read(pfd, task.buff, task.buff_length, task_id);
-    } else {
-      auto &task = task_data[task_id];
-      // free this task if we're not auto re-reading
-      FREE(task.buff);
-      free_task(task_id);
-      std::cout << "freed the old buff\n";
-    }
+    auto &task = task_data[task_id];
+    // free this task if we're not auto re-reading
+    FREE(task.buff);
+    free_task(task_id);
     break;
   }
   default: {

@@ -5,7 +5,7 @@
   }
 </style>
 <img src="https://picsum.photos/200/300">
-<img src="test.jpg" width="200px">
+<div id="images"></div>
 <video controls autoplay muted width="500px">
   <source src="numinous_amv.mp4" type="video/mp4">
 </video>
@@ -23,7 +23,14 @@
 </div>
 
 <script>
-  setTimeout(() => {
-    document.querySelector("video").currentTime = 20;
-  })
+  window.onload = async function() {
+    const res = await fetch("/getlisting");
+    const txt = await res.text();
+    const pictures = txt.split("\n").filter(f => {
+      return f.endsWith(".jpg") || f.endsWith(".jpeg") || f.endsWith(".webp") ||
+        f.endsWith(".png") || f.endsWith(".gif");
+    });
+    const imageDiv = document.querySelector("#images");
+    pictures.forEach(p => imageDiv.innerHTML += `<img width="300px" src="${p}">`);
+  }
 </script>

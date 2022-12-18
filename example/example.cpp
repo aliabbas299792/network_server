@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <string>
 #include <unistd.h>
+#include <filesystem>
 
 void app_methods::http_read_callback(http_request &&req, int client_num, bool failed_req) {
   if (failed_req) {
@@ -54,11 +55,24 @@ void app_methods::http_read_callback(http_request &&req, int client_num, bool fa
     ns->http_writev(client_num, iovs, 2);
   } else if (req.req_type == "GET") {
     const auto filepath = base_file_path + "/" + req.path;
-    const auto errorfilepath = base_file_path + "/404.html";
-    std::cout << "filepath: " << filepath << "\n";
-    auto ret = ns->http_send_file(client_num, filepath.c_str(), errorfilepath.c_str(), req);
+    
+    if(req.path == "/getlisting") {
+      std::string out = "";
+      for(const auto &e : std::filesystem::directory_iterator(base_file_path)) {
+        const auto fpath = e.path().string();
+        out += fpath.substr(base_file_path.size());
+        out += "\n";
+      }
+      http_response resp{http_resp_codes::RESP_200_OK, http_ver::HTTP_10, "text/plain", out};
+      char *write_buff = resp.allocate_buffer();
+      ns->http_write(client_num, write_buff, resp.length());
+    } else {
+      const auto errorfilepath = base_file_path + "/404.html";
+      std::cout << "filepath: " << filepath << "\n";
+      auto ret = ns->http_send_file(client_num, filepath.c_str(), errorfilepath.c_str(), req);
 
-    std::cout << "ret is: " << ret << "\n";
+      std::cout << "ret is: " << ret << "\n";
+    }
   }
 }
 
