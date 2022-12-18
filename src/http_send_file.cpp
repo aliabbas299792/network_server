@@ -1,7 +1,9 @@
 #include "../header/http_response.h"
 #include "../network_server.hpp"
+#include "header/lru.hpp"
+#include "subprojects/event_manager/event_manager.hpp"
 
-void network_server::http_send_file_submit_writev(uint64_t pfd, uint64_t task_id) {
+void network_server::http_send_file_writev_submit(uint64_t pfd, uint64_t task_id) {
   // http send file, read stage succeeded
   auto &task = task_data[task_id];
   task.additional_ptr = task.buff;
@@ -10,8 +12,18 @@ void network_server::http_send_file_submit_writev(uint64_t pfd, uint64_t task_id
 
   const bool using_ranges =
       task.write_ranges.size() != 0 && static_cast<size_t>(task.write_ranges_idx) < task.write_ranges.size();
+
+  http_send_file_writev_submit_helper(task_id, client_pfd, using_ranges);
+
+  // this potentially causes a reallocation which invalidates the task reference
+  raw_close(pfd); // close the file
+}
+
+int network_server::http_send_file_writev_submit_helper(int task_id, int client_pfd, bool using_ranges) {
   char *resp_data{};
   size_t resp_len{};
+  auto &task = task_data[task_id];
+
   if (using_ranges) {
     http_response resp{http_resp_codes::RESP_206_PARTIAL, http_ver::HTTP_10,
                        task.write_ranges[task.write_ranges_idx],
@@ -44,11 +56,7 @@ void network_server::http_send_file_submit_writev(uint64_t pfd, uint64_t task_id
   task.num_iovecs = 2;
   memcpy(task.iovs, task.buff, task.num_iovecs * sizeof(iovec));
 
-  // this potentially causes a reallocation which invalidates the task reference
-  raw_close(pfd); // close the file
-
-  auto &taskWrite = task_data[task_id];
-  ev->submit_writev(client_pfd, taskWrite.iovs, taskWrite.num_iovecs, task_id);
+  return ev->submit_writev(client_pfd, task.iovs, task.num_iovecs, task_id);
 }
 
 void network_server::http_send_file_read_failed(uint64_t pfd, uint64_t task_id) {
@@ -63,11 +71,24 @@ void network_server::http_send_file_writev_finish(uint64_t pfd, uint64_t task_id
   FREE(original_iovs_ptr[0].iov_base); // frees the header
   FREE(task.buff);                     // frees the original iovec
   FREE(task.iovs);                     // frees the iovec copy
-  FREE(task.additional_ptr);           // frees the data that was read
+
+  // 'unlocks' item if it is in the cache, so that it 
+  cache.unlock_item(task.filepath);
+  // additional_ptr has the pointer to the buffer read
+  // into memory the data that was read
+  if (task.additional_ptr != nullptr) {
+    // cache the item for later use
+    if (true || !cache.add_item(task.filepath, reinterpret_cast<char *>(task.additional_ptr),
+          task.buff_length)) {
+      // couldn't add to cache
+      FREE(task.additional_ptr);
+    }
+  }
+
   callbacks->http_writev_callback(nullptr, 0, pfd);
 }
 
-void network_server::http_send_file_writev(uint64_t pfd, uint64_t task_id) {
+void network_server::http_send_file_writev_continue(uint64_t pfd, uint64_t task_id) {
   auto &task = task_data[task_id];
   auto original_iovs_ptr = reinterpret_cast<iovec *>(task.buff);
 
@@ -105,15 +126,41 @@ void network_server::http_send_file_writev(uint64_t pfd, uint64_t task_id) {
   }
 }
 
+int network_server::http_send_cached_file(int client_num, std::string filepath_str) {
+  item_data *file_buff_info = cache.get_and_lock_item(filepath_str);
+
+  if(file_buff_info != NULL) {
+    // item is cached, so send the cached file
+    auto task_id = get_task(HTTP_SEND_FILE, 
+      reinterpret_cast<uint8_t*>(file_buff_info->buff), file_buff_info->buff_length);
+    return http_send_file_writev_submit_helper(task_id, client_num, false);
+  }
+  return -1;
+}
+
 int network_server::http_send_file(int client_num, const char *filepath, const char *not_found_filepath,
                                    const http_request &req) {
+  std::string filepath_str = filepath;
+
+  // if this file is cached, send it
+  int send_cached_ret = http_send_cached_file(client_num, filepath_str);
+  if(send_cached_ret >= 0) {
+    return send_cached_ret;
+  }
+
   int file_fd = open(filepath, O_RDONLY);
   bool file_not_found = false;
-  std::string filepath_str = filepath;
 
   if (file_fd < 0) {
     file_not_found = true;
     filepath_str = not_found_filepath;
+
+    // if this file is cached, send it
+    int send_cached_ret = http_send_cached_file(client_num, filepath_str);
+    if(send_cached_ret >= 0) {
+      return send_cached_ret;
+    }
+
     file_fd = open(not_found_filepath, O_RDONLY);
 
     if (file_fd < 0) {

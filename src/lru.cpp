@@ -1,11 +1,34 @@
 #include "../header/lru.hpp"
+#include "network_server.hpp"
+#include <sys/inotify.h>
+#include <unistd.h>
 
-const bool LRU::add_item(std::string item_name, char *buff, size_t buff_length) {
-  auto node = get_item(item_name);
+// placed what event we are using here for ease of reading
+const int MODIFY_EVENT = IN_MODIFY;
+const int DELETE_OR_MOVE_EVENT = IN_DELETE_SELF;
+
+int lru_file_cache::get_inotify_fd() {
+  return inotify_fd;
+}
+
+void lru_file_cache::process_inotify_event(inotify_event *e) {
+  if(e != nullptr && e->mask) { // file has been modified/moved/deleted
+    for (auto n = head; n != nullptr; n = n->next) {
+      if (n->watch == e->wd) {
+        n->outdated = true;
+        remove_item(n->data.file_name);
+        return;
+      }
+    }
+  }
+}
+
+bool lru_file_cache::add_item(std::string file_name, char *buff, size_t buff_length) {
+  auto node = get_item(file_name);
   if (node != nullptr) {
     if (node->num_locks == 0) {
       // if you can, then update the current contents
-      free(node->data.buff);
+      FREE(node->data.buff);
 
       node->data.buff = buff;
       node->data.buff_length = buff_length;
@@ -15,7 +38,7 @@ const bool LRU::add_item(std::string item_name, char *buff, size_t buff_length) 
   }
 
   if (num_items < max_num_items) {
-    auto new_node = new item_node{};
+    auto new_node = reinterpret_cast<item_node*>(MALLOC(sizeof(item_node)));
     if (tail == nullptr) {
       head = new_node;
       tail = head;
@@ -28,7 +51,9 @@ const bool LRU::add_item(std::string item_name, char *buff, size_t buff_length) 
 
     new_node->data.buff = buff;
     new_node->data.buff_length = buff_length;
-    new_node->data.item_name = item_name;
+    new_node->data.file_name = file_name;
+    // monitor for deletion and modification
+    new_node->watch = inotify_add_watch(inotify_fd, file_name.c_str(), MODIFY_EVENT | DELETE_OR_MOVE_EVENT);
 
     num_items++;
     return true;
@@ -36,28 +61,37 @@ const bool LRU::add_item(std::string item_name, char *buff, size_t buff_length) 
     if (tail != nullptr) {
       // try removing the last item
       // if it succeeds, then try adding again
-      if (remove_item(tail->data.item_name))
-        add_item(item_name, buff, buff_length);
-      return true;
+      if (remove_item(tail->data.file_name)) {
+        std::cout << "we removed item " << tail->data.file_name << "\n";
+        return add_item(file_name, buff, buff_length);
+      }
+      std::cout << "cant do it blad cant do it.....\n";
+      return false;
     }
   }
   return false;
 }
 
-item_node *LRU::get_item(std::string item_name) {
+item_node *lru_file_cache::get_item(std::string file_name) {
   for (auto n = head; n != nullptr; n = n->next) {
-    if (n->data.item_name == item_name) {
+    if (n->data.file_name == file_name) {
       return n;
     }
   }
   return nullptr;
 }
 
-item_data *const LRU::get_and_lock_item(std::string item_name) {
-  auto node = get_item(item_name);
+item_data *const lru_file_cache::get_and_lock_item(std::string file_name) {
+  auto node = get_item(file_name);
   // promote to front of list
-  if (node == nullptr)
+  if (node == nullptr) {
     return nullptr;
+  }
+
+  if(node->outdated) {
+    remove_item(file_name);
+    return nullptr;
+  }
 
   node->num_locks++;
   auto data = &(node->data);
@@ -85,16 +119,16 @@ item_data *const LRU::get_and_lock_item(std::string item_name) {
   return data;
 }
 
-void LRU::unlock_item(std::string item_name) {
+void lru_file_cache::unlock_item(std::string file_name) {
   for (auto n = head; n != nullptr; n = n->next) {
-    if (n->data.item_name == item_name) {
+    if (n->data.file_name == file_name) {
       n->num_locks = std::max(0ul, n->num_locks - 1);
     }
   }
 }
 
-bool LRU::remove_item(std::string item_name) {
-  auto node = get_item(item_name);
+bool lru_file_cache::remove_item(std::string file_name) {
+  auto node = get_item(file_name);
 
   if (node == nullptr)
     return true; // count not finding as succesful deletion
@@ -115,10 +149,17 @@ bool LRU::remove_item(std::string item_name) {
 
   num_items--;
 
-  free(node->data.buff); // frees the stored buffer
-  free(node);            // frees the node
+  inotify_rm_watch(inotify_fd, node->watch);
+  FREE(node->data.buff); // frees the stored buffer
+  FREE(node);            // frees the node
 
   return true;
 }
 
-LRU::LRU(size_t size) { max_num_items = size; }
+lru_file_cache::lru_file_cache(size_t size, network_server *ns) {
+  max_num_items = size;
+  this->ns = ns;
+  inotify_fd = inotify_init();
+}
+
+lru_file_cache::~lru_file_cache() { close(inotify_fd); }

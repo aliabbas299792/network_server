@@ -3,38 +3,51 @@
 
 #include <cstddef>
 #include <string>
+#include <sys/inotify.h>
+
+class network_server;
 
 struct item_data {
   char *buff{};
   size_t buff_length{};
-  std::string item_name{};
+  std::string file_name{};
 };
 
 struct item_node {
   struct item_node *next{};
   struct item_node *prev{};
-  size_t num_locks{};
+  size_t num_locks{}; // used to prevent item from being removed while still in use
 
   item_data data{};
+  int watch = -1;
+  bool outdated = false;
 };
 
-class LRU {
+class lru_file_cache {
   item_node *head{};
   item_node *tail{};
   size_t num_items{};
 
   size_t max_num_items{};
 
-  item_node *get_item(std::string item_name);
+  item_node *get_item(std::string file_name);
+
+  // for file monitoring
+  int inotify_fd{};
+  network_server *ns{};
 
 public:
-  // it is assumed the buffer is to be managed by the LRU from here
-  const bool add_item(std::string item_name, char *buff, size_t buff_length);
-  bool remove_item(std::string item_name);
-  item_data *const get_and_lock_item(std::string item_name);
-  void unlock_item(std::string item_name);
+  // it is assumed the buffer is to be managed by the LRU once passed
+  bool add_item(std::string file_name, char *buff, size_t buff_length);
+  bool remove_item(std::string file_name);
+  item_data *const get_and_lock_item(std::string file_name);
+  void unlock_item(std::string file_name);
 
-  LRU(size_t size);
+  void process_inotify_event(inotify_event *e);
+  int get_inotify_fd();
+
+  lru_file_cache(size_t size, network_server *ns);
+  ~lru_file_cache();
 };
 
 #endif

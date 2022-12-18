@@ -3,6 +3,7 @@
 #include "header/metadata.hpp"
 #include "network_server.hpp"
 #include <cstdint>
+#include <sys/inotify.h>
 #include <sys/types.h>
 
 void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_data, socklen_t size,
@@ -105,20 +106,25 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
     return;
   }
 
-  if (pfd >= pfd_states.size())
+  if (pfd >= pfd_states.size()) {
     pfd_states.resize(pfd + 1);
+  }
   auto &state = pfd_states[pfd];
 
   if (read_metadata.op_res_num == 0) { // read was 0, socket connection closed
     auto &task = task_data[task_id];
-    // only network sockets had network server allocated buffers
-    if (task.op_type == operation_type::NETWORK_READ || task.op_type == operation_type::HTTP_POST_READ) {
+    // only network sockets (and inotify) had network server allocated buffers
+    if (task.op_type == INOTIFY_READ || task.op_type == NETWORK_READ || task.op_type == HTTP_POST_READ) {
       FREE(task.buff);
+
+      if(task.op_type == INOTIFY_READ) {
+        return;
+      }
     }
 
     if (task.op_type == operation_type::HTTP_SEND_FILE && task.progress == task.buff_length) {
       // http send file, read stage succeeded
-      http_send_file_submit_writev(pfd, task_id);
+      http_send_file_writev_submit(pfd, task_id);
       return;
     } else if (task.op_type == operation_type::HTTP_SEND_FILE) {
       // http send file failed
@@ -163,7 +169,7 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
     } else { // finished reading
       if (task.op_type == HTTP_SEND_FILE) {
         // http send file, read stage succeeded
-        http_send_file_submit_writev(pfd, task_id);
+        http_send_file_writev_submit(pfd, task_id);
       } else if (task.op_type == HTTP_POST_READ) {
         // read entire post request
         data.buffer = task_data[task_id].buff;
@@ -202,6 +208,15 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
     // free this task if we're not auto re-reading
     FREE(task.buff);
     free_task(task_id);
+    break;
+  }
+  case operation_type::INOTIFY_READ: {
+    auto &task = task_data[task_id];
+    inotify_event *e = (inotify_event*)task.buff;
+    cache.process_inotify_event(e);
+    
+    memset(task.buff, 0, task.buff_length);
+    ev->submit_read(pfd, task.buff, task.buff_length, task_id);
     break;
   }
   default: {
@@ -266,9 +281,8 @@ void network_server::writev_callback(processed_data_vecs write_metadata, uint64_
   if (total_progress >= full_write_size) {
     switch (task.op_type) {
     case HTTP_SEND_FILE: {
-      http_send_file_writev(pfd, task_id);
+      http_send_file_writev_continue(pfd, task_id);
       return; // all that needs to be done for http_send_file is done in the above procedure
-      break;
     }
     case HTTP_WRITEV:
       callbacks->http_writev_callback(original_iovs_ptr, task.num_iovecs, pfd);

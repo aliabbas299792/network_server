@@ -4,6 +4,7 @@
 #include "../subprojects/event_manager/event_manager.hpp"
 #include "header/debug_mem_ops.hpp"
 #include "header/http_request.h"
+#include "header/lru.hpp"
 #include "header/metadata.hpp"
 #include "header/utility.hpp"
 #include <cstdint>
@@ -12,6 +13,8 @@
 
 class network_server; // forward declaration for application methods
 class web_methods;
+
+const constexpr int CACHE_SIZE = 3;
 
 struct buff_data {
   size_t size{};
@@ -29,6 +32,7 @@ concept int_range = requires {
 // accept doesn't need any information for what it is
 // websocket read and http read are under network read
 enum operation_type {
+  INOTIFY_READ,
   NETWORK_READ,
   WEBSOCKET_READ, // only used to get correct close callback
   RAW_READ,
@@ -115,6 +119,8 @@ class network_server : public server_methods {
 private:
   friend class web_methods;
 
+  lru_file_cache cache{CACHE_SIZE, this};
+
   std::vector<pfd_state> pfd_states{};
   std::vector<task> task_data{};
   std::set<int> task_freed_idxs{};
@@ -124,9 +130,11 @@ private:
   void free_task(int task_id);
 
   // helper for http_send_file
-  void http_send_file_submit_writev(uint64_t pfd, uint64_t task_id);
+  void http_send_file_writev_submit(uint64_t pfd, uint64_t task_id);
+  int http_send_file_writev_submit_helper(int task_id, int client_pfd, bool using_ranges);
+  int http_send_cached_file(int client_num, std::string filepath_str);
+  void http_send_file_writev_continue(uint64_t pfd, uint64_t task_id);
   void http_send_file_read_failed(uint64_t pfd, uint64_t task_id);
-  void http_send_file_writev(uint64_t pfd, uint64_t task_id);
   void http_send_file_writev_finish(uint64_t pfd, uint64_t task_id, bool failed_req);
 
   // vector ops progress in similar way, so abstracted it to one function

@@ -1,26 +1,39 @@
 #include "../header/debug_mem_ops.hpp"
 #include "network_server.hpp"
 #include <cstdint>
+#include <linux/limits.h>
 #include <signal.h>
+#include <sys/inotify.h>
 
 network_server::network_server(int port, event_manager *ev, application_methods *callbacks) {
-  signal(SIGPIPE, SIG_IGN); // signal handler for when a connection is closed while writing
+  // signal handler for when a connection is closed while writing
+  signal(SIGPIPE, SIG_IGN);
 
+  // callbacks used by the network server
   if (callbacks == nullptr) {
     std::string error = "Application methods callbacks must be set (" + std::string(__FUNCTION__);
     error += ": " + std::to_string(__LINE__);
     utility::fatal_error(error);
   }
+  this->callbacks = callbacks;
 
+  // event manager setup
   this->ev = ev;
   ev->set_server_methods(this);
 
-  this->callbacks = callbacks;
-
+  // initialise listening
   listener_pfd = utility::setup_listener_pfd(port, ev);
   if (ev->submit_accept(listener_pfd) < 0) {
     utility::fatal_error("Listener accept failed");
   }
+
+  // initial read for the cache
+  int inotify_fd = cache.get_inotify_fd();
+  int inotify_pfd = ev->pass_fd_to_event_manager(inotify_fd, false);
+  size_t size_buff = sizeof(inotify_event) + NAME_MAX + 1;
+  uint8_t *inotify_read_buff = (uint8_t*)MALLOC(size_buff);
+  int inotify_read_task = get_task(INOTIFY_READ, inotify_read_buff, size_buff);
+  ev->submit_read(inotify_pfd, inotify_read_buff, size_buff, inotify_read_task);
 }
 
 void network_server::start() { ev->start(); }
@@ -153,6 +166,7 @@ void network_server::application_close_callback(int pfd, uint64_t task_id) {
   case RAW_READV:
     callbacks->raw_close_callback(pfd);
     break;
+  case INOTIFY_READ:
   case EVENT_READ: // don't expect to deal with this here
     break;
   }
