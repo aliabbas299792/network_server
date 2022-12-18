@@ -66,7 +66,6 @@ A simple library which can be used to write a web server.
   - The client was closed, deal with cleanup
 
 # Todo
-- 4kb page leak somewhere, likely network connection not cleaned up properly
 - add in LRU cache to network server, also add way for it to be invalidated
 - add in TLS support
 - The network server should be able to load in the `event_manager` library dynamically, instantiate it, start it, and replace an older version with a newer version.
