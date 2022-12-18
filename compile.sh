@@ -1,1 +1,1 @@
-meson -Db_sanitize=address build && cd build && ninja && cd ../
+meson -Db_sanitize=address -Db_coverage=true build && cd build && ninja && cd ../
