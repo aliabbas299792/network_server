@@ -1,5 +1,5 @@
-#include "../header/http_request.h"
-#include "../header/debug_mem_ops.hpp"
+#include "header/http_request.h"
+#include "header/debug_mem_ops.hpp"
 #include <cstring>
 
 void http_request::req_type_data_parser(char *token_str) {

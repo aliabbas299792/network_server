@@ -1,4 +1,4 @@
-#include "../header/lru.hpp"
+#include "header/lru.hpp"
 #include "network_server.hpp"
 #include <sys/inotify.h>
 #include <unistd.h>

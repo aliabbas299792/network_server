@@ -3,8 +3,8 @@
 
 constexpr int port = 4001;
 
-#include "../header/http_response.h"
-#include "../network_server.hpp"
+#include "header/http_response.h"
+#include "network_server.hpp"
 
 struct job_data {
   int client_num = -1;

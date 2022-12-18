@@ -4,7 +4,7 @@
 #include <cstring>
 #include <string>
 
-#include "../vendor/sha1/sha1.hpp"
+#include "vendor/sha1/sha1.hpp"
 #include "debug_mem_ops.hpp"
 #include "http_request.h"
 #include "utility.hpp"

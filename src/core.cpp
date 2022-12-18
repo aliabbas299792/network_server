@@ -1,4 +1,4 @@
-#include "../header/debug_mem_ops.hpp"
+#include "header/debug_mem_ops.hpp"
 #include "network_server.hpp"
 #include <cstdint>
 #include <linux/limits.h>

@@ -9,8 +9,12 @@ src_files = ['src/utility.cpp', 'src/callbacks.cpp',
   'src/raw_ops.cpp', 'src/http_response.cpp', 'src/lru.cpp'
 ]
 
-libnetwork_server = library('network_server', src_files, dependencies: [libevent_manager_dep])
+incdir = [include_directories('./')]
+
+libnetwork_server = library('network_server', src_files, dependencies: [libevent_manager_dep], include_directories : incdir)
 libnetwork_server_dep = declare_dependency(link_with: libnetwork_server)
+
+deps = [libnetwork_server_dep, libevent_manager_dep]
 
 subdir('tests')
 subdir('example')

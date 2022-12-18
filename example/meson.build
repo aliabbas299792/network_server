@@ -1,1 +1,1 @@
-executable('network_server_example', 'example.cpp', dependencies: [libnetwork_server_dep, libevent_manager_dep])
+executable('network_server_example', 'example.cpp', dependencies: deps, include_directories: incdir)

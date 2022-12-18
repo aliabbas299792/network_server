@@ -2,7 +2,7 @@
 #include <netdb.h>
 #include <netinet/tcp.h>
 
-#include "../header/utility.hpp"
+#include "header/utility.hpp"
 
 namespace utility {
 

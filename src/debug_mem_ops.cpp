@@ -1,4 +1,4 @@
-#include "../header/debug_mem_ops.hpp"
+#include "header/debug_mem_ops.hpp"
 
 std::unordered_map<uint64_t, size_t> PTR_TO_ALLOC{};
 size_t MEM_ALLOCATED{};
