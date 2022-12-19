@@ -78,7 +78,7 @@ void network_server::http_send_file_writev_finish(uint64_t pfd, uint64_t task_id
   // into memory the data that was read
   if (task.additional_ptr != nullptr) {
     // cache the item for later use
-    if (true || !cache.add_item(task.filepath, reinterpret_cast<char *>(task.additional_ptr),
+    if (true || !cache.add_or_update_item(task.filepath, reinterpret_cast<char *>(task.additional_ptr),
           task.buff_length)) {
       // couldn't add to cache
       FREE(task.additional_ptr);
