@@ -66,7 +66,7 @@ A simple library which can be used to write a web server.
   - The client was closed, deal with cleanup
 
 # Todo
-- add in LRU cache to network server, also add way for it to be invalidated
+- fix LRU cache, enable it by going to http_send_file.cpp:81
 - add in TLS support
 - The network server should be able to load in the `event_manager` library dynamically, instantiate it, start it, and replace an older version with a newer version.
 - Similarly the application stuff should be able to do the same for the `network_server`.
