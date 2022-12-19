@@ -32,6 +32,7 @@ private:
   size_t max_num_items{};
 
   item_node *get_item(std::string file_name);
+  bool remove_node(item_node *node);
 
   // for file monitoring
   int inotify_fd{};
