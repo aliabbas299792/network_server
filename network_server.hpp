@@ -3,7 +3,7 @@
 
 #include "subprojects/event_manager/event_manager.hpp"
 #include "header/debug_mem_ops.hpp"
-#include "header/http_request.h"
+#include "header/http_request.hpp"
 #include "header/lru.hpp"
 #include "header/metadata.hpp"
 #include "header/utility.hpp"

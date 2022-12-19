@@ -6,7 +6,7 @@
 
 #include "vendor/sha1/sha1.hpp"
 #include "debug_mem_ops.hpp"
-#include "http_request.h"
+#include "http_request.hpp"
 #include "utility.hpp"
 
 constexpr const char *CRLF = "\r\n";
