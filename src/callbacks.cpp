@@ -26,10 +26,12 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
 
-      // there was some other error, in case of accept treat it as fatal for now
-      std::string error = "(" + std::string(__FUNCTION__) + ": " + std::to_string(__LINE__);
-      error += "), errno: " + std::to_string(errno) + ", op_res_num: " + std::to_string(op_res_num);
-      utility::fatal_error(error);
+      if(!ev->is_dying_or_dead()) {
+        // there was some other error, in case of accept treat it as fatal for now
+        std::string error = "(" + std::string(__FUNCTION__) + ": " + std::to_string(__LINE__);
+        error += "), errno: " + std::to_string(errno) + ", op_res_num: " + std::to_string(op_res_num);
+        utility::fatal_error(error);
+      }
     }
     }
 
@@ -92,8 +94,13 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
       }
 
       auto &task = task_data[task_id];
-      if (task.op_type == operation_type::NETWORK_READ || task.op_type == operation_type::HTTP_POST_READ) {
+      if (task.op_type == INOTIFY_READ || task.op_type == NETWORK_READ || task.op_type == HTTP_POST_READ) {
         FREE(task.buff);
+
+        if(task.op_type == INOTIFY_READ) {
+          ev->shutdown_and_close_normally(pfd);
+          return;
+        }
       }
 
       // in case of any of these errors, just close the socket
@@ -118,6 +125,7 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
       FREE(task.buff);
 
       if(task.op_type == INOTIFY_READ) {
+        ev->shutdown_and_close_normally(pfd);
         return;
       }
     }

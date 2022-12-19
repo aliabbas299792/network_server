@@ -202,6 +202,7 @@ public:
   int pass_fd_to_network_server(int fd, bool is_network_fd);
 
   void start();
+  void stop();
 };
 
 #endif

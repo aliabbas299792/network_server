@@ -38,6 +38,8 @@ network_server::network_server(int port, event_manager *ev, application_methods 
 
 void network_server::start() { ev->start(); }
 
+void network_server::stop() { ev->kill(); }
+
 int network_server::get_task() {
   int id = 0;
 
