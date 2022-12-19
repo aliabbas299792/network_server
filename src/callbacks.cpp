@@ -224,7 +224,10 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
     cache.process_inotify_event(e);
     
     memset(task.buff, 0, task.buff_length);
-    ev->submit_read(pfd, task.buff, task.buff_length, task_id);
+    int submit_code = ev->submit_read(pfd, task.buff, task.buff_length, task_id);
+    if(submit_code < 0) {
+      FREE(e);
+    }
     break;
   }
   default: {

@@ -24,6 +24,7 @@ struct item_node {
 };
 
 class lru_file_cache {
+private:
   item_node *head{};
   item_node *tail{};
   size_t num_items{};
@@ -38,15 +39,18 @@ class lru_file_cache {
 
 public:
   // it is assumed the buffer is to be managed by the LRU once passed
-  bool add_item(std::string file_name, char *buff, size_t buff_length);
+  bool add_or_update_item(const std::string &file_name, char *buff, size_t buff_length);
   bool remove_item(std::string file_name);
+
+  // will promote the item to the front of the list if it can be locked
   item_data *const get_and_lock_item(std::string file_name);
+
   void unlock_item(std::string file_name);
 
   void process_inotify_event(inotify_event *e);
   int get_inotify_fd();
 
-  lru_file_cache(size_t size, network_server *ns);
+  lru_file_cache(size_t size);
   ~lru_file_cache();
 };
 

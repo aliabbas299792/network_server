@@ -119,7 +119,7 @@ class network_server : public server_methods {
 private:
   friend class web_methods;
 
-  lru_file_cache cache{CACHE_SIZE, this};
+  lru_file_cache cache{CACHE_SIZE};
 
   std::vector<pfd_state> pfd_states{};
   std::vector<task> task_data{};
@@ -199,7 +199,7 @@ public:
 
   // hands over responsibility of this fd to the network server
   // returned client_num is used with other operations with the network server
-  int pass_fd_to_network_server(int fd, bool is_network_fd);
+  int get_client_num_from_fd(int fd, bool is_network_fd);
 
   void start();
   void stop();

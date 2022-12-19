@@ -189,6 +189,6 @@ void network_server::network_read_procedure(int pfd, uint64_t task_id, bool fail
   }
 }
 
-int network_server::pass_fd_to_network_server(int fd, bool is_network_fd) {
+int network_server::get_client_num_from_fd(int fd, bool is_network_fd) {
   return ev->pass_fd_to_event_manager(fd, is_network_fd);
 }
