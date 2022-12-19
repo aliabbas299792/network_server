@@ -1,7 +1,14 @@
 #ifndef NETWORK_TESTS_HPP
 #define NETWORK_TESTS_HPP
 
+#include "header/debug_mem_ops.hpp"
 #include "network_server.hpp"
+
+inline char *malloc_str(std::string str) {
+  char *buff = (char*)MALLOC(str.size()+1);
+  memcpy(buff, str.c_str(), str.size());
+  return buff;
+}
 
 class app : public application_methods {
 public:

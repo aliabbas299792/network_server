@@ -50,9 +50,7 @@ std::string long_message = "Lorem ipsum dolor sit amet, consectetur adipiscing e
                                  "quam, interdum sit amet sem a, congue blandit urna.";
 
 char *create_buffer() {
-  char *buff = (char*)MALLOC(long_message.size()+1);
-  memcpy(buff, long_message.c_str(), long_message.size());
-  return buff;
+  return malloc_str(long_message);
 }
 
 TEST_CASE("LRU tests") {
