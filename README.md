@@ -66,6 +66,9 @@ A simple library which can be used to write a web server.
   - The client was closed, deal with cleanup
 
 # Todo
+- fix LRU cache, enable it by going to http_send_file.cpp:81
+  - appears to be issue with unlocking items, and potentially a memory leak
+- fix freeing task IDs, since can only seem to avoid errors by not enabling freeing them
 - add in unit test for rest of network server, aim for >=80% branch coverage and ~100% line coverage
 - diagnose rare segmentation fault, unsure if related to cache:
 ```
@@ -93,9 +96,6 @@ AddressSanitizer can not provide additional info.
 SUMMARY: AddressSanitizer: SEGV /usr/include/liburing.h:257 in io_uring_prep_rw
 ==2225418==ABORTING
 ```
-- fix LRU cache, enable it by going to http_send_file.cpp:81
-  - appears to be issue with unlocking items, and potentially a memory leak
-- fix freeing task IDs, since can only seem to avoid errors by not enabling freeing them
 - add in TLS support
 - The network server should be able to load in the `event_manager` library dynamically, instantiate it, start it, and replace an older version with a newer version.
 - Similarly the application stuff should be able to do the same for the `network_server`.
