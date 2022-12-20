@@ -66,6 +66,7 @@ A simple library which can be used to write a web server.
   - The client was closed, deal with cleanup
 
 # Todo
+- fix partial ranges on cached items
 - fix LRU cache, enable it by going to http_send_file.cpp:81
   - appears to be issue with unlocking items, and potentially a memory leak
 - fix freeing task IDs, since can only seem to avoid errors by not enabling freeing them
