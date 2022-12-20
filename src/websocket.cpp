@@ -1,6 +1,6 @@
 #include "network_server.hpp"
 
-bool network_server::websocket_frame_response_method(int pfd, buff_data data, bool failed_req) {
+bool network_server::websocket_frame_response_method(int pfd, bool *should_auto_resubmit_read, buff_data data, bool failed_req) {
   return false;
 }
 
@@ -12,12 +12,12 @@ template <int_range T> int network_server::websocket_broadcast(const T &containe
 }
 
 int network_server::websocket_writev(int pfd, struct iovec *iovs, size_t num_iovecs) {
-  auto task_id = get_task(operation_type::WEBSOCKET_WRITEV, iovs, num_iovecs);
+  auto task_id = get_task_vector_op(operation_type::WEBSOCKET_WRITEV, iovs, num_iovecs);
   return ev->submit_writev(pfd, iovs, num_iovecs, task_id);
 }
 
 int network_server::websocket_write(int pfd, buff_data data) {
-  auto task_id = get_task(operation_type::WEBSOCKET_WRITE, data.buffer, data.size);
+  auto task_id = get_task_buff_op(operation_type::WEBSOCKET_WRITE, data.buffer, data.size);
 
   // make a new buffer which is slightly bigger
   // add in websocket headings and stuff in there

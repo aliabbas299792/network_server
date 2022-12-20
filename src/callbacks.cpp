@@ -17,8 +17,8 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
     case ECONNABORTED:
     case EINTR:
       if (ev->submit_accept(pfd, additional_info) < 0) {
-        std::cerr << "\t\teintr failed: (code, pfd, fd, id): (" << op_res_num << ", " << pfd << ", "
-                  << ev->get_pfd_data(pfd).fd << ", " << ev->get_pfd_data(pfd).id << ")\n";
+        std::cerr << "\t\teintr failed: (code, pfd, fd): (" << op_res_num << ", " << pfd << ", "
+                  << ev->get_pfd_data(pfd).fd << ")\n";
         utility::fatal_error("Accept EINTR resubmit failed");
       }
       break;
@@ -40,7 +40,7 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
 
   // also read from the user
   auto buff = (uint8_t *)MALLOC(READ_SIZE);
-  auto user_task_id = get_task(operation_type::NETWORK_READ, buff, READ_SIZE);
+  auto user_task_id = get_task_buff_op(operation_type::NETWORK_READ, buff, READ_SIZE);
   auto &task = task_data[user_task_id];
 
   // submits the read, passes the task id as additional info
@@ -50,14 +50,14 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
     FREE(buff);
     free_task(user_task_id);
     ev->shutdown_and_close_normally(pfd);
-    std::cerr << "\tinitial read failed: (errno, pfd, fd, id): (" << errno << ", " << listener_pfd << ", "
-              << ev->get_pfd_data(listener_pfd).fd << ", " << ev->get_pfd_data(listener_pfd).id << ")\n";
+    std::cerr << "\tinitial read failed: (errno, pfd, fd): (" << errno << ", " << listener_pfd << ", "
+              << ev->get_pfd_data(listener_pfd).fd << ")\n";
   }
 
   // carry on listening, submits everything in the queue with it, not using task_id for this
   if (ev->submit_accept(listener_pfd, additional_info) < 0) {
-    std::cerr << "\t\tsubmit failed: (errno, pfd, fd, id): (" << errno << ", " << listener_pfd << ", "
-              << ev->get_pfd_data(listener_pfd).fd << ", " << ev->get_pfd_data(listener_pfd).id << ")\n";
+    std::cerr << "\t\tsubmit failed: (errno, pfd, fd): (" << errno << ", " << listener_pfd << ", "
+              << ev->get_pfd_data(listener_pfd).fd << ")\n";
     utility::fatal_error("Submit accept normal resubmit failed");
   }
 }
@@ -87,7 +87,7 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
         break;
       }
       case operation_type::NETWORK_READ: {
-        network_read_procedure(pfd, task_id, true); // failed the request
+        network_read_procedure(pfd, task_id, nullptr, true); // failed the request
       }
       default:
         break;
@@ -183,13 +183,28 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
         data.buffer = task_data[task_id].buff;
         data.size = total_progress;
 
-        network_read_procedure(pfd, task_id, false, data);
+        bool should_auto_resubmit_read = false;
+        network_read_procedure(pfd, task_id, &should_auto_resubmit_read, false, data);
+
+        auto &task = task_data[task_id];
 
         // for HTTP_SEND_FILE, auto_resubmit_read automatically converts the request to NETWORK_READ
-        auto &task = task_data[task_id];
-        // free this task if we're not auto re-reading
-        FREE(task.buff);
-        free_task(task_id);
+        if(should_auto_resubmit_read) {
+          task.progress = 0;
+
+          // revert to a normal network read
+          task.op_type = operation_type::NETWORK_READ;
+
+          state.shutdown_done = false;
+          std::memset(task.buff, 0, task.buff_length);
+
+          ev->submit_read(pfd, task.buff, task.buff_length, task_id);
+        } else {
+          // free this task if we're not auto re-reading
+          FREE(task.buff);
+          free_task(task_id);
+        }
+
       } else {
         data.buffer = task_data[task_id].buff;
         data.size = total_progress;
@@ -207,15 +222,27 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
     data.buffer = read_metadata.buff;
     data.size = read_this_time + task_progress;
 
-    network_read_procedure(pfd, task_id, false, data);
+    bool should_auto_resubmit_read = false;
+    network_read_procedure(pfd, task_id, &should_auto_resubmit_read, false, data);
 
     // getting ref to task here since the vector that task refers to may reallocate due to get_task()
     // since it increases in size, so the reference may be incorrect
     // and can cause a segmentation fault
     auto &task = task_data[task_id];
-    // free this task if we're not auto re-reading
-    FREE(task.buff);
-    free_task(task_id);
+
+    // auto resubmit read - this is for when you've had a normal HTTP operation
+    // and so this is needed to know if the socket has closed the connection (since it will read 0)
+    if(should_auto_resubmit_read) {
+      task.progress = 0;
+      state.shutdown_done = false;
+      std::memset(task.buff, 0, task.buff_length);
+
+      ev->submit_read(pfd, task.buff, task.buff_length, task_id);
+    } else {
+      // free this task if we're not auto re-reading
+      FREE(task.buff);
+      free_task(task_id);
+    }
     break;
   }
   case operation_type::INOTIFY_READ: {

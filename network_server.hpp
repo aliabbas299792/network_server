@@ -125,8 +125,9 @@ private:
   std::vector<task> task_data{};
   std::set<int> task_freed_idxs{};
   int get_task();
-  int get_task(operation_type type, uint8_t *buff, size_t length);
-  int get_task(operation_type type, struct iovec *iovecs, size_t num_iovecs);
+  int get_task_buff_op(operation_type type, uint8_t *buff, size_t length);
+  int get_task_http_send_file(operation_type type, uint8_t *buff, size_t length, std::string filepath);
+  int get_task_vector_op(operation_type type, struct iovec *iovecs, size_t num_iovecs);
   void free_task(int task_id);
 
   // helper for http_send_file
@@ -164,9 +165,9 @@ private:
   void close_pfd_gracefully(int pfd, uint64_t task_id = -1); // will call shutdown if needed
 
   // helper methods
-  bool http_response_method(int pfd, buff_data data = {}, bool failed_req = false);
-  bool websocket_frame_response_method(int pfd, buff_data data = {}, bool failed_req = false);
-  void network_read_procedure(int pfd, uint64_t task_id, bool failed_req = false, buff_data data = {});
+  bool http_response_method(int pfd, bool *should_auto_resubmit_read, buff_data data = {}, bool failed_req = false);
+  bool websocket_frame_response_method(int pfd, bool *should_auto_resubmit_read, buff_data data = {}, bool failed_req = false);
+  void network_read_procedure(int pfd, uint64_t task_id, bool *should_auto_resubmit_read, bool failed_req = false, buff_data data = {});
 
 public:
   network_server(int port, event_manager *ev, application_methods *callbacks);

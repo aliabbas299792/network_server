@@ -32,7 +32,7 @@ network_server::network_server(int port, event_manager *ev, application_methods 
   int inotify_pfd = ev->pass_fd_to_event_manager(inotify_fd, false);
   size_t size_buff = sizeof(inotify_event) + NAME_MAX + 1;
   uint8_t *inotify_read_buff = (uint8_t*)MALLOC(size_buff);
-  int inotify_read_task = get_task(INOTIFY_READ, inotify_read_buff, size_buff);
+  int inotify_read_task = get_task_buff_op(INOTIFY_READ, inotify_read_buff, size_buff);
   ev->submit_read(inotify_pfd, inotify_read_buff, size_buff, inotify_read_task);
 }
 
@@ -57,7 +57,7 @@ int network_server::get_task() {
   return id;
 }
 
-int network_server::get_task(operation_type type, uint8_t *buff, size_t length) {
+int network_server::get_task_buff_op(operation_type type, uint8_t *buff, size_t length) {
   auto id = get_task();
   auto &task = task_data[id];
   task.op_type = type;
@@ -70,7 +70,13 @@ int network_server::get_task(operation_type type, uint8_t *buff, size_t length) 
   return id;
 }
 
-int network_server::get_task(operation_type type, struct iovec *iovecs, size_t num_iovecs) {
+int network_server::get_task_http_send_file(operation_type type, uint8_t *buff, size_t length, std::string filepath) {
+  auto id = get_task_buff_op(type, buff, length);
+  task_data[id].filepath = filepath;
+  return id;
+}
+
+int network_server::get_task_vector_op(operation_type type, struct iovec *iovecs, size_t num_iovecs) {
   auto id = get_task();
   auto &task = task_data[id];
   task.op_type = type;
@@ -89,9 +95,9 @@ int network_server::get_task(operation_type type, struct iovec *iovecs, size_t n
 }
 
 void network_server::free_task(int task_id) {
-  std::cout << "freeing task id: " << task_id << ", container size: " << task_freed_idxs.size() << "\n";
-  task_data[task_id] = {};
-  task_freed_idxs.insert(task_id);
+  // std::cout << "freeing task id: " << task_id << ", container size: " << task_freed_idxs.size() << "\n";
+  // task_data[task_id] = {};
+  // task_freed_idxs.insert(task_id);
 }
 
 void network_server::close_pfd_gracefully(int pfd, uint64_t task_id) {
@@ -178,12 +184,12 @@ void network_server::application_close_callback(int pfd, uint64_t task_id) {
   // task is no longer needed since related pfd has been closed
 }
 
-void network_server::network_read_procedure(int pfd, uint64_t task_id, bool failed_req, buff_data data) {
+void network_server::network_read_procedure(int pfd, uint64_t task_id, bool *should_auto_resubmit_read, bool failed_req, buff_data data) {
   // http_response returns true if it was valid data and took action
   // websocket_frame_response returns true if it's a websocket frame
   // otherwise close the connection
-  if (!http_response_method(pfd, data) &&
-      !websocket_frame_response_method(pfd, data, failed_req) && !failed_req) {
+  if (!http_response_method(pfd, should_auto_resubmit_read, data, failed_req) &&
+      !websocket_frame_response_method(pfd, should_auto_resubmit_read, data, failed_req) && !failed_req) {
     // only need to call close method if it isn't a failed request, otherwise it is already going to close
     close_pfd_gracefully(pfd, task_id);
   }
