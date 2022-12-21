@@ -76,8 +76,8 @@ class application_methods {
 protected:
   network_server *ns{}; // application_methods must have access to network_server for it to work
 public:
-  virtual void accept_callback(int client_num) {}
-  virtual void event_trigger_callback(int client_num, uint64_t additional_info) {}
+  virtual void accept_callback(int client_num, bool failed_req = false) {}
+  virtual void event_trigger_callback(int client_num, uint64_t additional_info, bool failed_req = false) {}
 
   virtual void raw_read_callback(buff_data data, int client_num, bool failed_req = false) {}
   virtual void raw_readv_callback(struct iovec *data, size_t num_iovecs, int client_num,
@@ -98,10 +98,6 @@ public:
   virtual void http_writev_callback(struct iovec *data, size_t num_iovecs, int client_num,
                                     bool failed_req = false) {}
   virtual void http_close_callback(int client_num) {}
-
-  // there is no way to async close an eventfd, if this is triggered it is due
-  // to an eventfd read being cancelled because an error occurred (like it was closed)
-  virtual void event_error_close_callback(int client_num, uint64_t additional_info) {}
 
   virtual ~application_methods(){};
 

@@ -8,8 +8,11 @@
 
 void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_data, socklen_t size,
                                      uint64_t pfd, int op_res_num, uint64_t additional_info) {
-  ev->submit_all_queued_sqes();
   // clears the queue, so previous queued stuff doesn't interfere with the accept stuff
+  ev->submit_all_queued_sqes();
+
+  // we only manager a single listener pfd, all else is for the user
+  bool is_user_accept_event = listener_pfd == pfd;
 
   if (op_res_num < 0) {
     switch (errno) {
@@ -17,24 +20,39 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
     case ECONNABORTED:
     case EINTR:
       if (ev->submit_accept(pfd, additional_info) < 0) {
-        std::cerr << "\t\teintr failed: (code, pfd, fd): (" << op_res_num << ", " << pfd << ", "
-                  << ev->get_pfd_data(pfd).fd << ")\n";
-        utility::fatal_error("Accept EINTR resubmit failed");
+        // user failed accept is handled by the user
+        if(is_user_accept_event) {
+          callbacks->accept_callback(pfd, true);
+        } else if(!ev->is_dying_or_dead()) {
+          // for now just exits if the accept failed
+          std::cerr << "\t\teintr failed: (code, pfd, fd): (" << op_res_num << ", " << pfd << ", "
+                    << ev->get_pfd_data(pfd).fd << ")\n";
+          utility::fatal_error("Accept EINTR resubmit failed");
+        }
       }
       break;
     default: {
-      // in case of any of these errors, just close the socket
-      ev->shutdown_and_close_normally(pfd);
-
-      if(!ev->is_dying_or_dead()) {
+      // this is a user event
+      if(is_user_accept_event) {
+        callbacks->accept_callback(pfd, true);
+      } else if(!ev->is_dying_or_dead()) {
         // there was some other error, in case of accept treat it as fatal for now
         std::string error = "(" + std::string(__FUNCTION__) + ": " + std::to_string(__LINE__);
         error += "), errno: " + std::to_string(errno) + ", op_res_num: " + std::to_string(op_res_num);
         utility::fatal_error(error);
       }
+
+      // in case of any of these errors, just close the socket
+      ev->shutdown_and_close_normally(pfd);
     }
     }
 
+    return;
+  }
+
+  // user handles accepts however they please
+  if(is_user_accept_event) {
+    callbacks->accept_callback(pfd);
     return;
   }
 
@@ -55,7 +73,7 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
   }
 
   // carry on listening, submits everything in the queue with it, not using task_id for this
-  if (ev->submit_accept(listener_pfd, additional_info) < 0) {
+  if (ev->submit_accept(listener_pfd, additional_info) < 0 && !ev->is_dying_or_dead()) {
     std::cerr << "\t\tsubmit failed: (errno, pfd, fd): (" << errno << ", " << listener_pfd << ", "
               << ev->get_pfd_data(listener_pfd).fd << ")\n";
     utility::fatal_error("Submit accept normal resubmit failed");
@@ -528,14 +546,16 @@ void network_server::event_callback(int pfd, int op_res_num, uint64_t additional
     switch (errno) {
     case EINTR:
       // for these errors, just try again, otherwise fail
-      ev->submit_generic_event(pfd, additional_info);
+      if(ev->submit_generic_event(pfd, additional_info) < 0) {
+        callbacks->event_trigger_callback(pfd, additional_info, true);
+      }
       break;
     default: {
       // in case of any of these errors, just close the socket
       ev->shutdown_and_close_normally(pfd);
 
       // there was some other error
-      callbacks->event_error_close_callback(pfd, additional_info);
+      callbacks->event_trigger_callback(pfd, additional_info, true);
       return;
     }
     }
