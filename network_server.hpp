@@ -76,7 +76,6 @@ class application_methods {
 protected:
   network_server *ns{}; // application_methods must have access to network_server for it to work
 public:
-  virtual void accept_callback(int client_num, bool failed_req = false) {}
   virtual void event_trigger_callback(int client_num, uint64_t additional_info, bool failed_req = false) {}
 
   virtual void raw_read_callback(buff_data data, int client_num, bool failed_req = false) {}

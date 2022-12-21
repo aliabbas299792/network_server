@@ -11,31 +11,20 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
   // clears the queue, so previous queued stuff doesn't interfere with the accept stuff
   ev->submit_all_queued_sqes();
 
-  // we only manager a single listener pfd, all else is for the user
-  bool is_user_accept_event = listener_pfd == pfd;
-
   if (op_res_num < 0) {
     switch (errno) {
     // for these errors, just try again, otherwise fail
     case ECONNABORTED:
     case EINTR:
-      if (ev->submit_accept(pfd, additional_info) < 0) {
-        // user failed accept is handled by the user
-        if(is_user_accept_event) {
-          callbacks->accept_callback(pfd, true);
-        } else if(!ev->is_dying_or_dead()) {
-          // for now just exits if the accept failed
-          std::cerr << "\t\teintr failed: (code, pfd, fd): (" << op_res_num << ", " << pfd << ", "
-                    << ev->get_pfd_data(pfd).fd << ")\n";
-          utility::fatal_error("Accept EINTR resubmit failed");
-        }
+      if (ev->submit_accept(listener_pfd, additional_info) < 0 && !ev->is_dying_or_dead()) {
+        // for now just exits if the accept failed
+        std::cerr << "\t\teintr failed: (code, pfd, fd): (" << op_res_num << ", " << pfd << ", "
+                  << ev->get_pfd_data(pfd).fd << ")\n";
+        utility::fatal_error("Accept EINTR resubmit failed");
       }
       break;
     default: {
-      // this is a user event
-      if(is_user_accept_event) {
-        callbacks->accept_callback(pfd, true);
-      } else if(!ev->is_dying_or_dead()) {
+      if(!ev->is_dying_or_dead()) {
         // there was some other error, in case of accept treat it as fatal for now
         std::string error = "(" + std::string(__FUNCTION__) + ": " + std::to_string(__LINE__);
         error += "), errno: " + std::to_string(errno) + ", op_res_num: " + std::to_string(op_res_num);
@@ -47,12 +36,6 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
     }
     }
 
-    return;
-  }
-
-  // user handles accepts however they please
-  if(is_user_accept_event) {
-    callbacks->accept_callback(pfd);
     return;
   }
 
