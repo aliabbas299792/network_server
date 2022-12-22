@@ -89,7 +89,9 @@ int network_server::get_task_vector_op(operation_type type, struct iovec *iovecs
 }
 
 void network_server::free_task(int task_id) {
-  // std::cout << "freeing task id: " << task_id << ", container size: " << task_freed_idxs.size() << "\n";
+#ifdef VERBOSE_DEBUG
+  std::cout << "freeing task id: " << task_id << ", container size: " << task_freed_idxs.size() << "\n";
+#endif
   // task_data[task_id] = {};
   // task_freed_idxs.insert(task_id);
 }

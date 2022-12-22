@@ -2,8 +2,10 @@
 #define LRU_HPP
 
 #include <cstddef>
+#include <mutex>
 #include <string>
 #include <sys/inotify.h>
+#include <thread>
 
 class network_server;
 
@@ -50,6 +52,23 @@ public:
 
   void process_inotify_event(inotify_event *e);
   int get_inotify_fd();
+
+  std::mutex m{};
+
+  void print_stats() {
+    std::lock_guard<std::mutex> lg(m);
+
+    int cnt = 0;
+    size_t size = 0;
+    for(item_node *n = head; n != nullptr; n = n->next) {
+      size += n->data.buff_length;
+      ++cnt;
+    }
+    printf("\t\t\t | ->> (cache stats) cnt: %d - size: %ld\n", cnt, size);
+    for(item_node *n = head; n != nullptr; n = n->next) {
+      printf("\t\t\t\t | file: %s, size: %ld\n", n->data.file_name.c_str(), n->data.buff_length);
+    }
+  }
 
   lru_file_cache(size_t size);
   ~lru_file_cache();

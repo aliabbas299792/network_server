@@ -45,11 +45,13 @@ std::string b64_encode(const char *str) {
 }
 
 void log_helper_function(std::string msg, bool cerr_or_not) {
+#ifdef VERBOSE_DEBUG
   time_t t = time(NULL);
   struct tm *tm = localtime(&t);
   std::string time = asctime(tm);
   time.pop_back();
   std::cout << "[ " << time << " ]: " << msg << std::endl;
+#endif
 }
 
 void fatal_error(std::string error_message) {

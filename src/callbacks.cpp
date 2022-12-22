@@ -16,15 +16,25 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
     // for these errors, just try again, otherwise fail
     case ECONNABORTED:
     case EINTR:
+#ifdef VERBOSE_DEBUG
+      printf("EINTR INTERCEPTED: resumibtting accept\n");
+#endif
       if (ev->submit_accept(listener_pfd) < 0 && !ev->is_dying_or_dead()) {
         // for now just exits if the accept failed
-        std::cerr << "\t\teintr failed: (code, pfd, fd): (" << op_res_num << ", " << pfd << ", "
-                  << ev->get_pfd_data(pfd).fd << ")\n";
+#ifdef VERBOSE_DEBUG
+        std::cerr << "\t\tsomething failed: (code, pfd, listener pfd): (" << op_res_num << ", " << pfd << ", "
+                  << listener_pfd << ")\n";
+#endif
         utility::fatal_error("Accept EINTR resubmit failed");
       }
       break;
     default: {
       if(!ev->is_dying_or_dead()) {
+#ifdef VERBOSE_DEBUG
+        printf("accept fatal error...\n");
+        std::cerr << "\t\tsomething failed: (code, pfd, listener pfd): (" << op_res_num << ", " << pfd << ", "
+                  << listener_pfd << ")\n";
+#endif
         // there was some other error, in case of accept treat it as fatal for now
         std::string error = "(" + std::string(__FUNCTION__) + ": " + std::to_string(__LINE__);
         error += "), errno: " + std::to_string(errno) + ", op_res_num: " + std::to_string(op_res_num);
@@ -51,8 +61,11 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
     FREE(buff);
     free_task(user_task_id);
     ev->shutdown_and_close_normally(pfd);
-    std::cerr << "\tinitial read failed: (errno, pfd, fd): (" << errno << ", " << listener_pfd << ", "
-              << ev->get_pfd_data(listener_pfd).fd << ")\n";
+#ifdef VERBOSE_DEBUG
+    std::cerr << "\tinitial read failed: (errno, listner pfd, listener fd, pfd, fd): (" << errno << ", " << listener_pfd << ", "
+              << ev->get_pfd_data(listener_pfd).fd << ", " << pfd << ", "
+              << ev->get_pfd_data(pfd).fd << ")\n";
+#endif
   }
 
   // carry on listening, submits everything in the queue with it, not using task_id for this
@@ -475,7 +488,9 @@ void network_server::write_callback(processed_data write_metadata, uint64_t pfd,
 
     switch (task.op_type) {
     case HTTP_WRITE:
+#ifdef VERBOSE_DEBUG
       std::cout << (int64_t)task.buff << "\n";
+#endif
       callbacks->http_write_callback(data, pfd);
       close_pfd_gracefully(pfd, task_id);
       break;
@@ -488,7 +503,10 @@ void network_server::write_callback(processed_data write_metadata, uint64_t pfd,
     default:
       break;
     }
+
+#ifdef VERBOSE_DEBUG
     std::cout << "watch out for this, this is potentially an incorrect freeing of the task\n";
+#endif
     free_task(task_id); // done writing, task can be freed now
   }
 }

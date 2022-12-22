@@ -58,6 +58,9 @@ int network_server::http_send_file_writev_submit_helper(int task_id, int client_
   task.num_iovecs = 2;
   memcpy(task.iovs, task.buff, task.num_iovecs * sizeof(iovec));
 
+#ifdef VERBOSE_DEBUG
+  std::cout << "client pfd is: " << client_pfd << "\n";
+#endif
   return ev->submit_writev(client_pfd, task.iovs, task.num_iovecs, task_id);
 }
 
@@ -80,7 +83,7 @@ void network_server::http_send_file_writev_finish(uint64_t pfd, uint64_t task_id
   // into memory the data that was read
   if (task.additional_ptr != nullptr) {
     // cache the item for later use
-    if (true || !cache.add_or_update_item(task.filepath, reinterpret_cast<char *>(task.additional_ptr),
+    if (!cache.add_or_update_item(task.filepath, reinterpret_cast<char *>(task.additional_ptr),
           task.buff_length)) {
       // couldn't add to cache
       FREE(task.additional_ptr);
@@ -129,9 +132,6 @@ void network_server::http_send_file_writev_continue(uint64_t pfd, uint64_t task_
 }
 
 int network_server::http_send_cached_file(int client_num, std::string filepath_str, const http_request &req) {
-  test_message(this, client_num);
-  return 0;
-
   item_data *file_buff_info = cache.get_and_lock_item(filepath_str);
   if(file_buff_info != NULL) {
     // item is cached, so send the cached file
@@ -223,10 +223,10 @@ int network_server::http_send_file(int client_num, const char *filepath, const c
 }
 
 void helper_range_unsatisfiable_error_send(network_server *ns, int client_num) {
-    http_response resp{http_resp_codes::RESP_416_UNSATISFIABLE_RANGE, http_ver::HTTP_10, "text/html", 0};
-    auto buff = resp.allocate_buffer();
+  http_response resp{http_resp_codes::RESP_416_UNSATISFIABLE_RANGE, http_ver::HTTP_10, "text/html", 0};
+  auto buff = resp.allocate_buffer();
   ns->http_write(client_num, buff, resp.length());
-  }
+}
 
 bool is_using_ranges(const task &t) {
   return t.write_ranges.size() != 0 &&

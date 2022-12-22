@@ -196,6 +196,10 @@ public:
   // returned client_num is used with other operations with the network server
   int get_client_num_from_fd(int fd, bool is_network_fd);
 
+  void print_cache_stats() {
+    cache.print_stats();
+  }
+
   void start();
   void stop();
 };

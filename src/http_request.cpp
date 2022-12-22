@@ -308,7 +308,9 @@ std::vector<range> http_request::get_ranges(size_t max_size, bool *valid_range) 
       start = std::atoi(range_start);
 
       if (start >= max_size - 1) {
+#ifdef VERBOSE_DEBUG
         std::cout << max_size << " is max size\n\n\n\n";
+#endif
         *valid_range = false;
         break;
       }
@@ -322,10 +324,12 @@ std::vector<range> http_request::get_ranges(size_t max_size, bool *valid_range) 
           end = max_size - 1;
         }
       } else {
-        // std::cout << "\n\n\t\trange str: |" << range_str << "|\n";
-        // std::cout << "\t\trange start: |" << r.start << "|\n";
-        // std::cout << "\t\trange end is nullptr: |" << (range_end == nullptr) << "|\n";
-        // std::cout << "\t\trange end len: |" << strlen(range_end) << "|\n\n";
+#ifdef VERBOSE_DEBUG
+        std::cout << "\n\n\t\trange str: |" << range_str << "|\n";
+        std::cout << "\t\trange start: |" << range_start << "|\n";
+        std::cout << "\t\trange end is nullptr: |" << (range_end == nullptr) << "|\n";
+        std::cout << "\t\trange end len: |" << strlen(range_end) << "|\n\n";
+#endif
         end = std::atoi(range_end);
         if (*range_end != '0' && end == 0)
           break;

@@ -8,9 +8,11 @@ void *MALLOC(size_t size) {
 #ifdef DEBUG_MODE
   MEM_ALLOCATED += size;
   PTR_TO_ALLOC[uint64_t(ptr)] = size;
+#ifdef VERBOSE_DEBUG
   utility::log_helper_function("(MALLOC) current memory: " + std::to_string(MEM_ALLOCATED) +
                                    ", malloc'd: " + std::to_string(size),
                                false);
+#endif
 #endif
   return ptr;
 }
@@ -19,8 +21,10 @@ void FREE(void *ptr) {
 #ifdef DEBUG_MODE
   size_t size = PTR_TO_ALLOC[(uint64_t)ptr];
   MEM_ALLOCATED -= size;
+#ifdef VERBOSE_DEBUG
   utility::log_helper_function(
       "(FREE) current memory: " + std::to_string(MEM_ALLOCATED) + ", freed: " + std::to_string(size), false);
+#endif
 #endif
   free(ptr);
 }

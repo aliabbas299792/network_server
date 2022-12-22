@@ -3,6 +3,8 @@ project('network_server', 'cpp', default_options: ['cpp_std=c++2a'])
 libevent_manager_proj = subproject('event_manager')
 libevent_manager_dep = libevent_manager_proj.get_variable('libevent_manager_dep')
 
+cpp_args_arr = ['-DVERBOSE_DEBUG', '-DFD_MEMORY_CACHE_STATS']
+
 src_files = ['src/utility.cpp', 'src/callbacks.cpp', 
   'src/core.cpp', 'src/http_request.cpp', 'src/http.cpp',
   'src/http_send_file.cpp', 'src/websocket.cpp', 'src/debug_mem_ops.cpp',

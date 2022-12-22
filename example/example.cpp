@@ -13,7 +13,9 @@ void app_methods::http_read_callback(http_request &&req, int client_num, bool fa
 
   if (req.req_type == "POST") {
 
+#ifdef VERBOSE_DEBUG
     std::cout << "path: " << req.path << "\n";
+#endif
     if (req.path == "/upload_file") {
       auto items = req.extract_post_data_items();
 
@@ -23,6 +25,7 @@ void app_methods::http_read_callback(http_request &&req, int client_num, bool fa
         write(write_fd, item.buff, item.size);
         close(write_fd);
 
+#ifdef VERBOSE_DEBUG
         if (item.name)
           std::cout << "name: " << item.name << "\n";
         if (item.filename)
@@ -32,11 +35,17 @@ void app_methods::http_read_callback(http_request &&req, int client_num, bool fa
         if (item.content_type)
           std::cout << "type: " << item.content_type << "\n";
         std::cout << "size: " << item.size << "\n\n";
+#endif
       }
 
+#ifdef VERBOSE_DEBUG
       std::cout << "num items: " << items.size() << "\n";
+#endif
     }
+
+#ifdef VERBOSE_DEBUG
     std::cout << "\n\n" << req.content_length << " is the content length\n\n";
+#endif
 
     const char str[] = "Hello world! Good to see you contact me";
     uint8_t *buff = (uint8_t *)MALLOC(strlen(str) + 1);
@@ -68,10 +77,15 @@ void app_methods::http_read_callback(http_request &&req, int client_num, bool fa
       ns->http_write(client_num, write_buff, resp.length());
     } else {
       const auto errorfilepath = base_file_path + "/404.html";
+
+#ifdef VERBOSE_DEBUG
       std::cout << "filepath: " << filepath << "\n";
+#endif
       auto ret = ns->http_send_file(client_num, filepath.c_str(), errorfilepath.c_str(), req);
 
-      std::cout << "ret is: " << ret << "\n";
+#ifdef VERBOSE_DEBUG
+      std::cout << "(http send file) ret is: " << ret << "\n";
+#endif
     }
   }
 }
@@ -90,19 +104,25 @@ void app_methods::http_write_callback(buff_data data, int client_num, bool faile
 void app_methods::http_writev_callback(struct iovec *data, size_t num_iovecs, int client_num,
                                        bool failed_req) {
   if (num_iovecs > 0) {
+#ifdef VERBOSE_DEBUG
     std::cout << "wrtiev happened, data len: " << data[1].iov_len << "\n";
+#endif
 
     FREE(data[0].iov_base);
     FREE(data[1].iov_base);
     FREE(data);
   } else {
+#ifdef VERBOSE_DEBUG
     std::cout << "writev occurred, using http_send_file\n";
+#endif
   }
 }
 
 void app_methods::http_close_callback(int client_num) {
+#ifdef VERBOSE_DEBUG
   std::cout << "connection closed: " << client_num << " at time " << (unsigned long)time(NULL) << "\n";
   MEM_PRINT();
+#endif
 }
 
 int main() { app_methods{"/home/watcher/network_server/public"}; }

@@ -1,1 +1,1 @@
-executable('network_server_example', 'example.cpp', dependencies: deps, include_directories: incdir)
+executable('network_server_example', 'example.cpp', dependencies: deps, include_directories: incdir,  cpp_args : cpp_args_arr)

@@ -9,8 +9,10 @@ bool network_server::http_response_method(int pfd, bool *should_auto_resubmit_re
 
   http_request req{reinterpret_cast<char *>(data.buffer), data.size};
 
+#ifdef VERBOSE_DEBUG
   std::cout << "got a request: " << req.req_type << ", of size: " << data.size << " from fd "
             << ev->get_pfd_data(pfd).fd << "\n";
+#endif
 
   if (req.req_type == "POST") {
     if (req.content_length) {
@@ -26,14 +28,19 @@ bool network_server::http_response_method(int pfd, bool *should_auto_resubmit_re
             uint8_t *normal_buff = (uint8_t *)MALLOC(READ_SIZE);
             auto net_read_task_id = get_task_buff_op(operation_type::NETWORK_READ, normal_buff, READ_SIZE);
             ev->submit_read(pfd, normal_buff, READ_SIZE, net_read_task_id);
+#ifdef VERBOSE_DEBUG
             std::cout << "back to normal read...\n";
+#endif
           }
         } else if (acutal_content_len < content_len) {
           // need to send another read request to get the full body
           // below will contain the entire buffer
           size_t large_buff_size = (data.size - acutal_content_len) + content_len;
+
+#ifdef VERBOSE_DEBUG
           std::cout << "allocating buffer of size: " << large_buff_size
                     << ", and expecting this many more bytes: " << (large_buff_size - data.size) << "\n";
+#endif
           uint8_t *large_buff = (uint8_t *)MALLOC(large_buff_size);
           memcpy(large_buff, data.buffer, data.size);
 
@@ -41,7 +48,9 @@ bool network_server::http_response_method(int pfd, bool *should_auto_resubmit_re
           auto &read_task = task_data[read_post_task_id];
           read_task.progress = data.size;
           ev->submit_read(pfd, &large_buff[data.size], large_buff_size - data.size, read_post_task_id);
+#ifdef VERBOSE_DEBUG
           std::cout << "posting more data...\n";
+#endif
           return true;
         }
       } else if (content_len != 0) {
