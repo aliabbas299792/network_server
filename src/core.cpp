@@ -70,12 +70,6 @@ int network_server::get_task_buff_op(operation_type type, uint8_t *buff, size_t 
   return id;
 }
 
-int network_server::get_task_http_send_file(operation_type type, uint8_t *buff, size_t length, std::string filepath) {
-  auto id = get_task_buff_op(type, buff, length);
-  task_data[id].filepath = filepath;
-  return id;
-}
-
 int network_server::get_task_vector_op(operation_type type, struct iovec *iovecs, size_t num_iovecs) {
   auto id = get_task();
   auto &task = task_data[id];

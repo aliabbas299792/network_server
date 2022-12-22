@@ -3,6 +3,10 @@
 #include "header/lru.hpp"
 #include "subprojects/event_manager/event_manager.hpp"
 
+// 416 range unsatisfiable helper function
+static void helper_range_unsatisfiable_error_send(network_server *ns, int client_num);
+static bool is_using_ranges(const task &t);
+
 void network_server::http_send_file_writev_submit(uint64_t pfd, uint64_t task_id) {
   // http send file, read stage succeeded
   auto &task = task_data[task_id];
@@ -10,9 +14,7 @@ void network_server::http_send_file_writev_submit(uint64_t pfd, uint64_t task_id
   auto client_pfd = task.for_client_num;
   task.for_client_num = -1;
 
-  const bool using_ranges =
-      task.write_ranges.size() != 0 && static_cast<size_t>(task.write_ranges_idx) < task.write_ranges.size();
-
+  const bool using_ranges = is_using_ranges(task);
   http_send_file_writev_submit_helper(task_id, client_pfd, using_ranges);
 
   // this potentially causes a reallocation which invalidates the task reference
@@ -126,14 +128,34 @@ void network_server::http_send_file_writev_continue(uint64_t pfd, uint64_t task_
   }
 }
 
-int network_server::http_send_cached_file(int client_num, std::string filepath_str) {
-  item_data *file_buff_info = cache.get_and_lock_item(filepath_str);
+int network_server::http_send_cached_file(int client_num, std::string filepath_str, const http_request &req) {
+  test_message(this, client_num);
+  return 0;
 
+  item_data *file_buff_info = cache.get_and_lock_item(filepath_str);
   if(file_buff_info != NULL) {
     // item is cached, so send the cached file
-    auto task_id = get_task(HTTP_SEND_FILE, 
-      reinterpret_cast<uint8_t*>(file_buff_info->buff), file_buff_info->buff_length);
-    return http_send_file_writev_submit_helper(task_id, client_num, false);
+    auto task_id = get_task_buff_op(
+      HTTP_SEND_FILE, 
+      reinterpret_cast<uint8_t*>(file_buff_info->buff),
+      file_buff_info->buff_length
+    );
+
+    auto &task = task_data[task_id];
+    task.filepath = filepath_str;
+
+    bool valid_range{};
+    task.write_ranges = req.get_ranges(file_buff_info->buff_length, &valid_range);
+
+    if (!valid_range) {
+      cache.unlock_item(filepath_str);
+      free_task(task_id);
+      helper_range_unsatisfiable_error_send(this, client_num);
+      return 0;
+    }
+    
+    const bool using_ranges = is_using_ranges(task);
+    return http_send_file_writev_submit_helper(task_id, client_num, using_ranges);
   }
   return -1;
 }
@@ -143,11 +165,12 @@ int network_server::http_send_file(int client_num, const char *filepath, const c
   std::string filepath_str = filepath;
 
   // if this file is cached, send it
-  int send_cached_ret = http_send_cached_file(client_num, filepath_str);
+  int send_cached_ret = http_send_cached_file(client_num, filepath_str, req);
   if(send_cached_ret >= 0) {
     return send_cached_ret;
   }
 
+  // file wasn't cached, open/read/send
   int file_fd = open(filepath, O_RDONLY);
   bool file_not_found = false;
 
@@ -156,7 +179,7 @@ int network_server::http_send_file(int client_num, const char *filepath, const c
     filepath_str = not_found_filepath;
 
     // if this file is cached, send it
-    int send_cached_ret = http_send_cached_file(client_num, filepath_str);
+    int send_cached_ret = http_send_cached_file(client_num, filepath_str, req);
     if(send_cached_ret >= 0) {
       return send_cached_ret;
     }
@@ -164,7 +187,7 @@ int network_server::http_send_file(int client_num, const char *filepath, const c
     file_fd = open(not_found_filepath, O_RDONLY);
 
     if (file_fd < 0) {
-      std::cerr << "Error file not found\n";
+      std::cerr << "Error " << not_found_filepath << " not found\n";
       return file_fd;
     }
   }
@@ -177,9 +200,10 @@ int network_server::http_send_file(int client_num, const char *filepath, const c
   auto &task = task_data[file_task_id];
   task.for_client_num = client_num;
   task.buff_length = size;
+  task.filepath = filepath_str;
   task.op_type = operation_type::HTTP_SEND_FILE;
 
-  bool valid_range = true;
+  bool valid_range{};
   if (!file_not_found) {
     task.write_ranges = req.get_ranges(size, &valid_range);
   }
@@ -189,16 +213,22 @@ int network_server::http_send_file(int client_num, const char *filepath, const c
   if (!valid_range) {
     close_pfd_gracefully(file_pfd);
     free_task(file_task_id);
-
-    http_response resp{http_resp_codes::RESP_416_UNSATISFIABLE_RANGE, http_ver::HTTP_10, "text/html", 0};
-    auto buff = resp.allocate_buffer();
-    std::cout << "buff len is: " << resp.length() << "\n";
-    http_write(client_num, buff, resp.length());
-    return 0;
+    helper_range_unsatisfiable_error_send(this, client_num);
+    return -1;
   }
 
   task.buff = (uint8_t *)MALLOC(size);
-  task.filepath = filepath;
 
   return ev->submit_read(file_pfd, task.buff, size, file_task_id);
+}
+
+void helper_range_unsatisfiable_error_send(network_server *ns, int client_num) {
+    http_response resp{http_resp_codes::RESP_416_UNSATISFIABLE_RANGE, http_ver::HTTP_10, "text/html", 0};
+    auto buff = resp.allocate_buffer();
+  ns->http_write(client_num, buff, resp.length());
+  }
+
+bool is_using_ranges(const task &t) {
+  return t.write_ranges.size() != 0 &&
+    static_cast<size_t>(t.write_ranges_idx) < t.write_ranges.size();
 }

@@ -16,7 +16,7 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
     // for these errors, just try again, otherwise fail
     case ECONNABORTED:
     case EINTR:
-      if (ev->submit_accept(listener_pfd, additional_info) < 0 && !ev->is_dying_or_dead()) {
+      if (ev->submit_accept(listener_pfd) < 0 && !ev->is_dying_or_dead()) {
         // for now just exits if the accept failed
         std::cerr << "\t\teintr failed: (code, pfd, fd): (" << op_res_num << ", " << pfd << ", "
                   << ev->get_pfd_data(pfd).fd << ")\n";
@@ -56,7 +56,7 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
   }
 
   // carry on listening, submits everything in the queue with it, not using task_id for this
-  if (ev->submit_accept(listener_pfd, additional_info) < 0 && !ev->is_dying_or_dead()) {
+  if (ev->submit_accept(listener_pfd) < 0 && !ev->is_dying_or_dead()) {
     std::cerr << "\t\tsubmit failed: (errno, pfd, fd): (" << errno << ", " << listener_pfd << ", "
               << ev->get_pfd_data(listener_pfd).fd << ")\n";
     utility::fatal_error("Submit accept normal resubmit failed");

@@ -275,7 +275,13 @@ http_request::~http_request() {
 }
 
 std::vector<range> http_request::get_ranges(size_t max_size, bool *valid_range) const {
+  if(!valid_range) {
+    std::cerr << "No valid range indicator variable passed\n";
+    return {};
+  }
+
   std::vector<range> ranges{};
+  *valid_range = true; // assume true from the start
 
   if (range_str.length() == 0)
     return ranges;

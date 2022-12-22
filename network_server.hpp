@@ -121,14 +121,13 @@ private:
   std::set<int> task_freed_idxs{};
   int get_task();
   int get_task_buff_op(operation_type type, uint8_t *buff, size_t length);
-  int get_task_http_send_file(operation_type type, uint8_t *buff, size_t length, std::string filepath);
   int get_task_vector_op(operation_type type, struct iovec *iovecs, size_t num_iovecs);
   void free_task(int task_id);
 
   // helper for http_send_file
   void http_send_file_writev_submit(uint64_t pfd, uint64_t task_id);
   int http_send_file_writev_submit_helper(int task_id, int client_pfd, bool using_ranges);
-  int http_send_cached_file(int client_num, std::string filepath_str);
+  int http_send_cached_file(int client_num, std::string filepath_str, const http_request &req);
   void http_send_file_writev_continue(uint64_t pfd, uint64_t task_id);
   void http_send_file_read_failed(uint64_t pfd, uint64_t task_id);
   void http_send_file_writev_finish(uint64_t pfd, uint64_t task_id, bool failed_req);
