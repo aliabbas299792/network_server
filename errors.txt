@@ -1,4 +1,57 @@
-20dec 11:55am:
+Overall errors:
+----------------------------
+- (ERROR 1), (ERROR 5) and (ERROR 6) all seem to be the same errors, liburing.h:257 some sort of buffer overflow
+- (ERROR 2) I have no idea about
+- (ERROR 4) we are leaking sockets, due to previous testing I think it's because we're not closing properly (this shows up quickly when I try to DDoS the server)
+- (ERROR 3) is fixed
+
+------------------------------------------------------------------------------------------------------------------------
+All error logs below:
+------------------------------------------------------------------------------------------------------------------------
+
+
+
+(ERROR 1) 19dec 21:57:
+
+Not sure why this happens
+Upgraded the kernel since I thought maybe that could be the issue because it seems to imply that it is overflowing by not much
+Also occurs in (ERROR 5) and (ERROR y)
+
+[ Mon Dec 19 21:57:13 2022 ]: (MALLOC) current memory: 9915, malloc'd: 4096
+AddressSanitizer:DEADLYSIGNAL
+=================================================================
+==2225418==ERROR: AddressSanitizer: SEGV on unknown address 0x7f49d0832000 (pc 0x7f49d15717dd bp 0x7ffc5eb5d250 sp 0x7ffc5eb5d220 T0)
+==2225418==The signal is caused by a WRITE memory access.
+    #0 0x7f49d15717dd in io_uring_prep_rw /usr/include/liburing.h:257
+    #1 0x7f49d1571a87 in io_uring_prep_read /usr/include/liburing.h:507
+    #2 0x7f49d15739e8 in event_manager::queue_read(int, unsigned char*, unsigned long, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:224
+    #3 0x7f49d157290d in event_manager::submit_read(int, unsigned char*, unsigned long, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:77
+    #4 0x7f49d08e0edb in network_server::accept_callback(int, sockaddr_storage*, unsigned int, unsigned long, int, unsigned long) ../src/callbacks.cpp:48
+    #5 0x7f49d15780ab in event_manager::event_handler(int, request_data*) ../subprojects/event_manager/src/event_manager.cpp:621
+    #6 0x7f49d15767e3 in event_manager::await_single_message() ../subprojects/event_manager/src/event_manager.cpp:501
+    #7 0x7f49d157608e in event_manager::start() ../subprojects/event_manager/src/event_manager.cpp:461
+    #8 0x7f49d08eded4 in network_server::start() ../src/core.cpp:39
+    #9 0x55d76467893e in app_methods::app_methods(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) ../example/example.hpp:43
+    #10 0x55d76467679a in main ../example/example.cpp:108
+    #11 0x7f49d0229d8f in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:58
+    #12 0x7f49d0229e3f in __libc_start_main_impl ../csu/libc-start.c:392
+    #13 0x55d764672df4 in _start (/home/watcher/network_server/build/example/network_server_example+0x2bdf4)
+
+AddressSanitizer can not provide additional info.
+SUMMARY: AddressSanitizer: SEGV /usr/include/liburing.h:257 in io_uring_prep_rw
+==2225418==ABORTING
+
+
+
+
+
+
+
+
+(ERROR 2) 20dec 11:55am:
+
+No idea why this happens, test more to know if this is gone
+
 freeing task id: 46209, container size: 0
 [ Tue Dec 20 11:52:14 2022 ]: (MALLOC) current memory: 329759, malloc'd: 1449
 got a request: GET, of size: 1448 from fd 45843 with id 0
@@ -90,7 +143,10 @@ Shadow byte legend (one shadow byte represents 8 application bytes):
 
 
 
-12:30pm 20dec:
+(ERROR 3) 12:30pm 20dec:
+
+I believe this is fixed by commit with hash bae154dee18015519ec7001dd515cc6c65af9972
+
 freeing task id: 692, container size: 7
 freeing task id: 692, container size: 8
 (event manager) pfd is: 718
@@ -186,7 +242,11 @@ freeing task id: 692, container size: 8
 
 
 
-21dec 02:28am:
+(ERROR 4) 21dec 02:28am:
+
+Number of open sockets ran out, we have a socket leak (due to not closing properly)
+Also in (ERROR x)
+
 got a request: GET, of size: 37 from fd 1022
 filepath: /home/watcher/network_server/public//c&;D"
 [ Wed Dec 21 01:32:00 2022 ]: (MALLOC) current memory: 169912012, malloc'd: 83
@@ -377,7 +437,14 @@ SUMMARY: AddressSanitizer: 6558 byte(s) leaked in 152 allocation(s).
 
 
 
-21dec 13:57pm:
+
+
+
+
+(ERROR 5) 21dec 13:57pm:
+
+Same as (ERROR 1) I believe
+
 freeing task id: 80, container size: 0
 got a request: GET, of size: 348 from fd 8
 filepath: /home/watcher/network_server/public/index.html
@@ -431,66 +498,12 @@ SUMMARY: AddressSanitizer: SEGV /usr/include/liburing.h:257 in io_uring_prep_rw
 
 
 
-21dec 18:26pm:
-writev occurred, using http_send_file
-got a request: GET, of size: 340 from fd 288
-filepath: /home/watcher/network_server/public/index.html
-			(locked) /home/watcher/network_server/public/index.html has 1 locks
-client pfd is: 10
-(http send file) ret is: 1
-	io_uring request failure with (code, pfd, fd): (-107, 11, 280)
-connection closed: 11 at time 1671647091
-freeing task id: 24825, container size: 0
-	io_uring request failure with (code, pfd, fd): (-107, 11, 280)
-connection closed: 11 at time 1671647091
-freeing task id: 24825, container size: 0
-	io_uring request failure with (code, pfd, fd): (-9, 10, 278)
-			(attempt unlock) try to unlock: /home/watcher/network_server/public/index.html
-			(unlocked) /home/watcher/network_server/public/index.html has 0 locks
-writev occurred, using http_send_file
-connection closed: 10 at time 1671647091
-freeing task id: 24828, container size: 0
-	io_uring request failure with (code, pfd, fd): (-9, 10, 278)
-got a request: , of size: 0 from fd 278
-connection closed: 10 at time 1671647091
-freeing task id: 24827, container size: 0
-got a request: GET, of size: 340 from fd 278
-filepath: /home/watcher/network_server/public/index.html
-			(locked) /home/watcher/network_server/public/index.html has 1 locks
-client pfd is: 10
-(http send file) ret is: 1
-connection closed: 11 at time 1671647091
-freeing task id: 24826, container size: 0
-	io_uring request failure with (code, pfd, fd): (-9, 10, 288)
-terminate called after throwing an instance of 'std::filesystem::__cxx11::filesystem_error'
-			(attempt unlock) try to unlock: /home/watcher/network_server/public/index.html
-			(unlocked) /home/watcher/network_server/public/index.html has 0 locks
-writev occurred, using http_send_file
-connection closed: 10 at time 1671647091
-freeing task id: 24830, container size: 0
-	io_uring request failure with (code, pfd, fd): (-9, 10, 288  what():  filesystem error: directory iterator cannot open directory: Bad file descriptor [/proc/self/fd]
-)
-Aborted (core dumped)
 
 
+(ERROR 6) 22dec 02:51am:
 
+Same as (ERROR 1) and (ERROR 5)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-22dec 02:51am:
 (http send file) ret is: 0
 connection closed: 3 at time 1671677401
 connection closed: 3 at time 1671677401
