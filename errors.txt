@@ -1,0 +1,543 @@
+20dec 11:55am:
+freeing task id: 46209, container size: 0
+[ Tue Dec 20 11:52:14 2022 ]: (MALLOC) current memory: 329759, malloc'd: 1449
+got a request: GET, of size: 1448 from fd 45843 with id 0
+filepath: /home/watcher/network_server/public//?w
+[ Tue Dec 20 11:52:14 2022 ]: (MALLOC) current memory: 329768, malloc'd: 9
+ret is: 1
+[ Tue Dec 20 11:52:14 2022 ]: (FREE) current memory: 328319, freed: 1449
+[ Tue Dec 20 11:52:14 2022 ]: (FREE) current memory: 324223, freed: 4096
+freeing task id: 45837, container size: 0
+[ Tue Dec 20 11:52:14 2022 ]: (MALLOC) current memory: 324418, malloc'd: 195
+[ Tue Dec 20 11:52:14 2022 ]: (MALLOC) current memory: 324450, malloc'd: 32
+[ Tue Dec 20 11:52:14 2022 ]: (MALLOC) current memory: 324482, malloc'd: 32
+=================================================================
+==2272370==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7f2c03c3f7f8 at pc 0x7f2c07c574de bp 0x7ffc5ed31430 sp 0x7ffc5ed31420
+READ of size 4 at 0x7f2c03c3f7f8 thread T0
+    #0 0x7f2c07c574dd in event_manager::queue_writev(int, iovec*, unsigned long, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:305
+    #1 0x7f2c07c55a93 in event_manager::submit_writev(int, iovec*, unsigned long, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:98
+    #2 0x7f2c07107414 in network_server::http_send_file_writev_submit_helper(int, int, bool) ../src/http_send_file.cpp:59
+    #3 0x7f2c071067e6 in network_server::http_send_file_writev_submit(unsigned long, unsigned long) ../src/http_send_file.cpp:16
+    #4 0x7f2c070e341a in network_server::read_callback(processed_data, unsigned long, unsigned long) ../src/callbacks.cpp:180
+    #5 0x7f2c07c5a9c1 in event_manager::event_handler(int, request_data*) ../subprojects/event_manager/src/event_manager.cpp:595
+    #6 0x7f2c07c597e3 in event_manager::await_single_message() ../subprojects/event_manager/src/event_manager.cpp:501
+    #7 0x7f2c07c5908e in event_manager::start() ../subprojects/event_manager/src/event_manager.cpp:461
+    #8 0x7f2c070edeb4 in network_server::start() ../src/core.cpp:39
+    #9 0x561bc2630c15 in app_methods::app_methods(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) ../example/example.hpp:34
+    #10 0x561bc262f71a in main ../example/example.cpp:108
+    #11 0x7f2c06a29d8f in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:58
+    #12 0x7f2c06a29e3f in __libc_start_main_impl ../csu/libc-start.c:392
+    #13 0x561bc262bd74 in _start (/home/watcher/network_server/build/example/network_server_example+0x26d74)
+
+0x7f2c03c3f7f8 is located 8 bytes to the left of 786432-byte region [0x7f2c03c3f800,0x7f2c03cff800)
+allocated by thread T0 here:
+    #0 0x7f2c072b61c7 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:99
+    #1 0x7f2c07c634b8 in __gnu_cxx::new_allocator<pfd_data>::allocate(unsigned long, void const*) /usr/include/c++/11/ext/new_allocator.h:127
+    #2 0x7f2c07c62992 in std::allocator<pfd_data>::allocate(unsigned long) /usr/include/c++/11/bits/allocator.h:185
+    #3 0x7f2c07c62992 in std::allocator_traits<std::allocator<pfd_data> >::allocate(std::allocator<pfd_data>&, unsigned long) /usr/include/c++/11/bits/alloc_traits.h:464
+    #4 0x7f2c07c60473 in std::_Vector_base<pfd_data, std::allocator<pfd_data> >::_M_allocate(unsigned long) /usr/include/c++/11/bits/stl_vector.h:346
+    #5 0x7f2c07c5dce9 in void std::vector<pfd_data, std::allocator<pfd_data> >::_M_realloc_insert<fd_types&, int, int&>(__gnu_cxx::__normal_iterator<pfd_data*, std::vector<pfd_data, std::allocator<pfd_data> > >, fd_types&, int&&, int&) /usr/include/c++/11/bits/vector.tcc:440
+    #6 0x7f2c07c5c6fa in pfd_data& std::vector<pfd_data, std::allocator<pfd_data> >::emplace_back<fd_types&, int, int&>(fd_types&, int&&, int&) /usr/include/c++/11/bits/vector.tcc:121
+    #7 0x7f2c07c550bf in event_manager::pfd_make(int, fd_types) ../subprojects/event_manager/src/event_manager.cpp:27
+    #8 0x7f2c07c5af7b in event_manager::event_handler(int, request_data*) ../subprojects/event_manager/src/event_manager.cpp:618
+    #9 0x7f2c07c597e3 in event_manager::await_single_message() ../subprojects/event_manager/src/event_manager.cpp:501
+    #10 0x7f2c07c5908e in event_manager::start() ../subprojects/event_manager/src/event_manager.cpp:461
+    #11 0x7f2c070edeb4 in network_server::start() ../src/core.cpp:39
+    #12 0x561bc2630c15 in app_methods::app_methods(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) ../example/example.hpp:34
+    #13 0x561bc262f71a in main ../example/example.cpp:108
+    #14 0x7f2c06a29d8f in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:58
+
+SUMMARY: AddressSanitizer: heap-buffer-overflow ../subprojects/event_manager/src/event_manager.cpp:305 in event_manager::queue_writev(int, iovec*, unsigned long, unsigned long)
+Shadow bytes around the buggy address:
+  0x0fe60077fea0: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x0fe60077feb0: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x0fe60077fec0: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x0fe60077fed0: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x0fe60077fee0: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+=>0x0fe60077fef0: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa[fa]
+  0x0fe60077ff00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x0fe60077ff10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x0fe60077ff20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x0fe60077ff30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x0fe60077ff40: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07 
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+  Shadow gap:              cc
+==2272370==ABORTING
+
+
+
+
+
+
+
+
+
+12:30pm 20dec:
+freeing task id: 692, container size: 7
+freeing task id: 692, container size: 8
+(event manager) pfd is: 718
+[ Tue Dec 20 12:29:28 2022 ]: (MALLOC) current memory: 104157, malloc'd: 10
+got a request: , of size: 9 from fd 731 with id 152
+[ Tue Dec 20 12:29:28 2022 ]: (FREE) current memory: 104147, freed: 10
+[ Tue Dec 20 12:29:28 2022 ]: (FREE) current memory: 100051, freed: 4096
+freeing task id: 759, container size: 8
+(event manager) pfd is: 1
+[ Tue Dec 20 12:29:28 2022 ]: (MALLOC) current memory: 104147, malloc'd: 4096
+(event manager) pfd is: 744
+[ Tue Dec 20 12:29:28 2022 ]: (FREE) current memory: 103952, freed: 195
+[ Tue Dec 20 12:29:28 2022 ]: (FREE) current memory: 103920, freed: 32
+[ Tue Dec 20 12:29:28 2022 ]: (FREE) current memory: 103888, freed: 32
+[ Tue Dec 20 12:29:28 2022 ]: (FREE) current memory: 103879, freed: 9
+writev occurred, using http_send_file
+        io_uring request failure with (code, pfd, fd, id): (-9, 718, 731, 152)
+(event manager) pfd is: 718
+freeing task id: 759, container size: 8
+(event manager) pfd is: 696
+[ Tue Dec 20 12:29:28 2022 ]: (MALLOC) current memory: 103917, malloc'd: 38
+got a request: GET, of size: 37 from fd 736 with id 299
+filepath: /home/watcher/network_server/public//O\nN)
+[ Tue Dec 20 12:29:28 2022 ]: (MALLOC) current memory: 103926, malloc'd: 9
+ret is: 1
+[ Tue Dec 20 12:29:28 2022 ]: (FREE) current memory: 103888, freed: 38
+[ Tue Dec 20 12:29:28 2022 ]: (FREE) current memory: 99792, freed: 4096
+freeing task id: 692, container size: 7
+(event manager) pfd is: 1
+[ Tue Dec 20 12:29:28 2022 ]: (MALLOC) current memory: 103888, malloc'd: 4096
+        io_uring request failure with (code, pfd, fd, id): (-107, 744, 732, 94)
+(event manager) pfd is: 744
+connection closed: 744 at time 1671539368
+[ Tue Dec 20 12:29:28 2022 ]: (MEM_PRINT) current memory: 103888
+freeing task id: 707, container size: 7
+(event manager) pfd is: 716
+[ Tue Dec 20 12:29:28 2022 ]: (MALLOC) current memory: 104083, malloc'd: 195
+[ Tue Dec 20 12:29:28 2022 ]: (MALLOC) current memory: 104115, malloc'd: 32
+[ Tue Dec 20 12:29:28 2022 ]: (MALLOC) current memory: 104147, malloc'd: 32
+client pfd is: 696
+freeing task id: 707, container size: 7
+freeing task id: 707, container size: 8
+(event manager) pfd is: 718
+[ Tue Dec 20 12:29:28 2022 ]: (MALLOC) current memory: 104157, malloc'd: 10
+got a request: , of size: 9 from fd 731 with id 153
+[ Tue Dec 20 12:29:28 2022 ]: (FREE) current memory: 104147, freed: 10
+[ Tue Dec 20 12:29:28 2022 ]: (FREE) current memory: 100051, freed: 4096
+freeing task id: 692, container size: 8
+(event manager) pfd is: 1
+[ Tue Dec 20 12:29:28 2022 ]: (MALLOC) current memory: 104147, malloc'd: 4096
+(event manager) pfd is: 696
+[ Tue Dec 20 12:29:28 2022 ]: (FREE) current memory: 103952, freed: 195
+[ Tue Dec 20 12:29:28 2022 ]: (FREE) current memory: 103920, freed: 32
+[ Tue Dec 20 12:29:28 2022 ]: (FREE) current memory: 103888, freed: 32
+[ Tue Dec 20 12:29:28 2022 ]: (FREE) current memory: 103879, freed: 9
+writev occurred, using http_send_file
+        io_uring request failure with (code, pfd, fd, id): (-9, 718, 731, 153)
+(event manager) pfd is: 718
+connection closed: 718 at time 1671539368
+[ Tue Dec 20 12:29:28 2022 ]: (MEM_PRINT) current memory: 103879
+freeing task id: 692, container size: 8
+(event manager) pfd is: 716
+=================================================================
+==2460774==AddressSanitizer CHECK failed: ../../../../src/libsanitizer/asan/asan_descriptions.cpp:80 "((0 && "Address is not in memory and not in shadow?")) != (0)" (0x0, 0x0)
+    #0 0x7f3ee00bd988 in AsanCheckFailed ../../../../src/libsanitizer/asan/asan_rtl.cpp:74
+    #1 0x7f3ee00de30e in __sanitizer::CheckFailed(char const*, int, char const*, unsigned long long, unsigned long long) ../../../../src/libsanitizer/sanitizer_common/sanitizer_termination.cpp:78
+    #2 0x7f3ee002da77 in GetShadowKind ../../../../src/libsanitizer/asan/asan_descriptions.cpp:80
+    #3 0x7f3ee002da77 in __asan::GetShadowAddressInformation(unsigned long, __asan::ShadowAddressDescription*) ../../../../src/libsanitizer/asan/asan_descriptions.cpp:96
+    #4 0x7f3ee002da77 in __asan::GetShadowAddressInformation(unsigned long, __asan::ShadowAddressDescription*) ../../../../src/libsanitizer/asan/asan_descriptions.cpp:93
+    #5 0x7f3ee002f296 in __asan::AddressDescription::AddressDescription(unsigned long, unsigned long, bool) ../../../../src/libsanitizer/asan/asan_descriptions.cpp:441
+    #6 0x7f3ee0031a84 in __asan::ErrorGeneric::ErrorGeneric(unsigned int, unsigned long, unsigned long, unsigned long, unsigned long, bool, unsigned long) ../../../../src/libsanitizer/asan/asan_errors.cpp:389
+    #7 0x7f3ee00bcfa5 in __asan::ReportGenericError(unsigned long, unsigned long, unsigned long, unsigned long, bool, unsigned long, unsigned int, bool) ../../../../src/libsanitizer/asan/asan_report.cpp:476
+    #8 0x7f3ee0039c44 in __interceptor_memset ../../../../src/libsanitizer/sanitizer_common/sanitizer_common_interceptors.inc:799
+    #9 0x7f3edfee2cce in network_server::read_callback(processed_data, unsigned long, unsigned long) ../src/callbacks.cpp:226
+    #10 0x7f3ee0aeaa48 in event_manager::event_handler(int, request_data*) ../subprojects/event_manager/src/event_manager.cpp:597
+    #11 0x7f3ee0ae97e3 in event_manager::await_single_message() ../subprojects/event_manager/src/event_manager.cpp:501
+    #12 0x7f3ee0ae908e in event_manager::start() ../subprojects/event_manager/src/event_manager.cpp:461
+    #13 0x7f3edfeeced4 in network_server::start() ../src/core.cpp:39
+    #14 0x556a42e15c15 in app_methods::app_methods(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) ../example/example.hpp:34
+    #15 0x556a42e1471a in main ../example/example.cpp:108
+    #16 0x7f3edf829d8f in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:58
+    #17 0x7f3edf829e3f in __libc_start_main_impl ../csu/libc-start.c:392
+    #18 0x556a42e10d74 in _start (/home/watcher/network_server/build/example/network_server_example+0x26d74)
+
+
+
+
+
+
+
+
+
+
+
+
+21dec 02:28am:
+got a request: GET, of size: 37 from fd 1022
+filepath: /home/watcher/network_server/public//c&;D"
+[ Wed Dec 21 01:32:00 2022 ]: (MALLOC) current memory: 169912012, malloc'd: 83
+ret is: -1
+[ Wed Dec 21 01:32:00 2022 ]: (FREE) current memory: 169911974, freed: 38
+106102872108448
+[ Wed Dec 21 01:32:00 2022 ]: (FREE) current memory: 169911891, freed: 83
+watch out for this, this is potentially an incorrect freeing of the task
+[ Wed Dec 21 01:32:00 2022 ]: (FREE) current memory: 169907795, freed: 4096
+	io_uring request failure with (code, pfd, fd): (-107, 134, 1022)
+connection closed: 134 at time 1671586320
+[ Wed Dec 21 01:32:00 2022 ]: (MEM_PRINT) current memory: 169907795
+	io_uring request failure with (code, pfd, fd): (-107, 134, 1022)
+connection closed: 134 at time 1671586320
+[ Wed Dec 21 01:32:00 2022 ]: (MEM_PRINT) current memory: 169907795
+	io_uring request failure with (code, pfd, fd): (-107, 134, 1022)
+connection closed: 134 at time 1671586320
+[ Wed Dec 21 01:32:00 2022 ]: (MEM_PRINT) current memory: 169907795
+[ Wed Dec 21 01:32:00 2022 ]: (MALLOC) current memory: 169911891, malloc'd: 4096
+[ Wed Dec 21 01:32:00 2022 ]: (MALLOC) current memory: 169911929, malloc'd: 38
+got a request: GET, of size: 37 from fd 1022
+filepath: /home/watcher/network_server/public//c7"&/
+[ Wed Dec 21 01:32:00 2022 ]: (MALLOC) current memory: 169912012, malloc'd: 83
+ret is: -1
+[ Wed Dec 21 01:32:00 2022 ]: (FREE) current memory: 169911974, freed: 38
+106102872107680
+[ Wed Dec 21 01:32:00 2022 ]: (FREE) current memory: 169911891, freed: 83
+watch out for this, this is potentially an incorrect freeing of the task
+[ Wed Dec 21 01:32:00 2022 ]: (FREE) current memory: 169907795, freed: 4096
+	io_uring request failure with (code, pfd, fd): (-107, 134, 1022)
+connection closed: 134 at time 1671586320
+[ Wed Dec 21 01:32:00 2022 ]: (MEM_PRINT) current memory: 169907795
+	io_uring request failure with (code, pfd, fd): (-107, 134, 1022)
+connection closed: 134 at time 1671586320
+[ Wed Dec 21 01:32:00 2022 ]: (MEM_PRINT) current memory: 169907795
+	io_uring request failure with (code, pfd, fd): (-107, 134, 1022)
+connection closed: 134 at time 1671586320
+[ Wed Dec 21 01:32:00 2022 ]: (MEM_PRINT) current memory: 169907795
+[ Wed Dec 21 01:32:00 2022 ]: (MALLOC) current memory: 169911891, malloc'd: 4096
+[ Wed Dec 21 01:32:00 2022 ]: (MALLOC) current memory: 169911929, malloc'd: 38
+got a request: GET, of size: 37 from fd 1022
+filepath: /home/watcher/network_server/public//Yz-:t
+[ Wed Dec 21 01:32:00 2022 ]: (MALLOC) current memory: 169912012, malloc'd: 83
+ret is: -1
+[ Wed Dec 21 01:32:00 2022 ]: (FREE) current memory: 169911974, freed: 38
+106102872108192
+[ Wed Dec 21 01:32:00 2022 ]: (FREE) current memory: 169911891, freed: 83
+watch out for this, this is potentially an incorrect freeing of the task
+[ Wed Dec 21 01:32:00 2022 ]: (FREE) current memory: 169907795, freed: 4096
+	io_uring request failure with (code, pfd, fd): (-107, 134, 1022)
+connection closed: 134 at time 1671586320
+[ Wed Dec 21 01:32:00 2022 ]: (MEM_PRINT) current memory: 169907795
+	io_uring request failure with (code, pfd, fd): (-107, 134, 1022)
+connection closed: 134 at time 1671586320
+[ Wed Dec 21 01:32:00 2022 ]: (MEM_PRINT) current memory: 169907795
+	io_uring request failure with (code, pfd, fd): (-107, 134, 1022)
+connection closed: 134 at time 1671586320
+[ Wed Dec 21 01:32:00 2022 ]: (MEM_PRINT) current memory: 169907795
+[ Wed Dec 21 01:32:00 2022 ]: (MALLOC) current memory: 169911891, malloc'd: 4096
+[ Wed Dec 21 01:32:00 2022 ]: (MALLOC) current memory: 169915987, malloc'd: 4096
+[ Wed Dec 21 01:32:00 2022 ]: (MALLOC) current memory: 169916025, malloc'd: 38
+got a request: GET, of size: 37 from fd 1023
+filepath: /home/watcher/network_server/public//E4{g9
+Error /home/watcher/network_server/public/404.html not found
+ret is: -1
+[ Wed Dec 21 01:32:00 2022 ]: (FREE) current memory: 169915987, freed: 38
+	io_uring request failure with (code, pfd, fd): (-24, 1, 6)
+accept, event_handler, res < 0: (res is -24)
+Fatal Error: (accept_callback: 31), errno: 88, op_res_num: -24: Socket operation on non-socket
+			 | ->> (cache stats) cnt: 3 - size: 169382796
+				 | file: /home/watcher/network_server/public/index.html, size: 1189
+				 | file: /home/watcher/network_server/public//numinous_amv.mp4, size: 30968610
+				 | file: /home/watcher/network_server/public//haibane_renmei_01.mp4, size: 138412997
+
+=================================================================
+==3362540==ERROR: LeakSanitizer: detected memory leaks
+
+Direct leak of 6096 byte(s) in 127 object(s) allocated from:
+    #0 0x7f02d6ab61c7 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:99
+    #1 0x7f02d74de6cf in event_manager::queue_read(int, unsigned char*, unsigned long, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:210
+    #2 0x7f02d74dd893 in event_manager::submit_read(int, unsigned char*, unsigned long, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:78
+    #3 0x7f02d68e3a80 in network_server::accept_callback(int, sockaddr_storage*, unsigned int, unsigned long, int, unsigned long) ../src/callbacks.cpp:48
+    #4 0x7f02d74e2bb4 in event_manager::event_handler(int, request_data*) ../subprojects/event_manager/src/event_manager.cpp:592
+    #5 0x7f02d74e15bf in event_manager::await_single_message() ../subprojects/event_manager/src/event_manager.cpp:494
+    #6 0x7f02d74e0f58 in event_manager::start() ../subprojects/event_manager/src/event_manager.cpp:454
+    #7 0x7f02d68f0de2 in network_server::start() ../src/core.cpp:39
+    #8 0x5618cf9aed47 in app_methods::app_methods(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) ../example/example.hpp:43
+    #9 0x5618cf9ac838 in main ../example/example.cpp:108
+    #10 0x7f02d6229d8f  (/lib/x86_64-linux-gnu/libc.so.6+0x29d8f)
+
+Direct leak of 160 byte(s) in 16 object(s) allocated from:
+    #0 0x7f02d6ab6337 in operator new[](unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:102
+    #1 0x7f02d68fdb22 in http_request::get_ranges(unsigned long, bool*) const ../src/http_request.cpp:293
+    #2 0x7f02d69098d7 in network_server::http_send_cached_file(int, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, http_request const&) ../src/http_send_file.cpp:146
+    #3 0x7f02d690a008 in network_server::http_send_file(int, char const*, char const*, http_request const&) ../src/http_send_file.cpp:166
+    #4 0x5618cf9ab64a in app_methods::http_read_callback(http_request&&, int, bool) ../example/example.cpp:72
+    #5 0x7f02d6906a04 in network_server::http_response_method(int, bool*, buff_data, bool) ../src/http.cpp:58
+    #6 0x7f02d68f20a9 in network_server::network_read_procedure(int, unsigned long, bool*, bool, buff_data) ../src/core.cpp:185
+    #7 0x7f02d68e6722 in network_server::read_callback(processed_data, unsigned long, unsigned long) ../src/callbacks.cpp:226
+    #8 0x7f02d74e2542 in event_manager::event_handler(int, request_data*) ../subprojects/event_manager/src/event_manager.cpp:566
+    #9 0x7f02d74e15bf in event_manager::await_single_message() ../subprojects/event_manager/src/event_manager.cpp:494
+    #10 0x7f02d74e0f58 in event_manager::start() ../subprojects/event_manager/src/event_manager.cpp:454
+    #11 0x7f02d68f0de2 in network_server::start() ../src/core.cpp:39
+    #12 0x5618cf9aed47 in app_methods::app_methods(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) ../example/example.hpp:43
+    #13 0x5618cf9ac838 in main ../example/example.cpp:108
+    #14 0x7f02d6229d8f  (/lib/x86_64-linux-gnu/libc.so.6+0x29d8f)
+
+Direct leak of 96 byte(s) in 2 object(s) allocated from:
+    #0 0x7f02d6ab61c7 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:99
+    #1 0x7f02d74de6cf in event_manager::queue_read(int, unsigned char*, unsigned long, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:210
+    #2 0x7f02d74dd893 in event_manager::submit_read(int, unsigned char*, unsigned long, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:78
+    #3 0x7f02d68e6915 in network_server::read_callback(processed_data, unsigned long, unsigned long) ../src/callbacks.cpp:240
+    #4 0x7f02d74e2542 in event_manager::event_handler(int, request_data*) ../subprojects/event_manager/src/event_manager.cpp:566
+    #5 0x7f02d74e15bf in event_manager::await_single_message() ../subprojects/event_manager/src/event_manager.cpp:494
+    #6 0x7f02d74e0f58 in event_manager::start() ../subprojects/event_manager/src/event_manager.cpp:454
+    #7 0x7f02d68f0de2 in network_server::start() ../src/core.cpp:39
+    #8 0x5618cf9aed47 in app_methods::app_methods(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) ../example/example.hpp:43
+    #9 0x5618cf9ac838 in main ../example/example.cpp:108
+    #10 0x7f02d6229d8f  (/lib/x86_64-linux-gnu/libc.so.6+0x29d8f)
+
+Direct leak of 96 byte(s) in 2 object(s) allocated from:
+    #0 0x7f02d6ab61c7 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:99
+    #1 0x7f02d74df467 in event_manager::queue_writev(int, iovec*, unsigned long, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:306
+    #2 0x7f02d74dda19 in event_manager::submit_writev(int, iovec*, unsigned long, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:99
+    #3 0x7f02d68e7e1b in network_server::writev_callback(processed_data_vecs, unsigned long, unsigned long) ../src/callbacks.cpp:347
+    #4 0x7f02d74e277b in event_manager::event_handler(int, request_data*) ../subprojects/event_manager/src/event_manager.cpp:571
+    #5 0x7f02d74e15bf in event_manager::await_single_message() ../subprojects/event_manager/src/event_manager.cpp:494
+    #6 0x7f02d74e0f58 in event_manager::start() ../subprojects/event_manager/src/event_manager.cpp:454
+    #7 0x7f02d68f0de2 in network_server::start() ../src/core.cpp:39
+    #8 0x5618cf9aed47 in app_methods::app_methods(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) ../example/example.hpp:43
+    #9 0x5618cf9ac838 in main ../example/example.cpp:108
+    #10 0x7f02d6229d8f  (/lib/x86_64-linux-gnu/libc.so.6+0x29d8f)
+
+Direct leak of 48 byte(s) in 1 object(s) allocated from:
+    #0 0x7f02d6ab61c7 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:99
+    #1 0x7f02d74de6cf in event_manager::queue_read(int, unsigned char*, unsigned long, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:210
+    #2 0x7f02d74dd893 in event_manager::submit_read(int, unsigned char*, unsigned long, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:78
+    #3 0x7f02d68e6bbb in network_server::read_callback(processed_data, unsigned long, unsigned long) ../src/callbacks.cpp:254
+    #4 0x7f02d74e2542 in event_manager::event_handler(int, request_data*) ../subprojects/event_manager/src/event_manager.cpp:566
+    #5 0x7f02d74e15bf in event_manager::await_single_message() ../subprojects/event_manager/src/event_manager.cpp:494
+    #6 0x7f02d74e0f58 in event_manager::start() ../subprojects/event_manager/src/event_manager.cpp:454
+    #7 0x7f02d68f0de2 in network_server::start() ../src/core.cpp:39
+    #8 0x5618cf9aed47 in app_methods::app_methods(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) ../example/example.hpp:43
+    #9 0x5618cf9ac838 in main ../example/example.cpp:108
+    #10 0x7f02d6229d8f  (/lib/x86_64-linux-gnu/libc.so.6+0x29d8f)
+
+Direct leak of 48 byte(s) in 1 object(s) allocated from:
+    #0 0x7f02d6ab61c7 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:99
+    #1 0x7f02d74ddfc3 in event_manager::queue_event_read(int, unsigned long, events) ../subprojects/event_manager/src/event_manager.cpp:169
+    #2 0x7f02d74dddca in event_manager::submit_event_read(int, unsigned long, events) ../subprojects/event_manager/src/event_manager.cpp:146
+    #3 0x7f02d74e0beb in event_manager::event_manager(server_methods*) ../subprojects/event_manager/src/event_manager.cpp:441
+    #4 0x5618cf9adbaa in event_manager::event_manager() ../subprojects/event_manager/event_manager.hpp:143
+    #5 0x5618cf9aebdf in app_methods::app_methods(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) ../example/example.hpp:29
+    #6 0x5618cf9ac838 in main ../example/example.cpp:108
+    #7 0x7f02d6229d8f  (/lib/x86_64-linux-gnu/libc.so.6+0x29d8f)
+
+Direct leak of 6 byte(s) in 2 object(s) allocated from:
+    #0 0x7f02d6ab6337 in operator new[](unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:102
+    #1 0x7f02d68fdb22 in http_request::get_ranges(unsigned long, bool*) const ../src/http_request.cpp:293
+    #2 0x7f02d690a7ad in network_server::http_send_file(int, char const*, char const*, http_request const&) ../src/http_send_file.cpp:206
+    #3 0x5618cf9ab64a in app_methods::http_read_callback(http_request&&, int, bool) ../example/example.cpp:72
+    #4 0x7f02d6906a04 in network_server::http_response_method(int, bool*, buff_data, bool) ../src/http.cpp:58
+    #5 0x7f02d68f20a9 in network_server::network_read_procedure(int, unsigned long, bool*, bool, buff_data) ../src/core.cpp:185
+    #6 0x7f02d68e6722 in network_server::read_callback(processed_data, unsigned long, unsigned long) ../src/callbacks.cpp:226
+    #7 0x7f02d74e2542 in event_manager::event_handler(int, request_data*) ../subprojects/event_manager/src/event_manager.cpp:566
+    #8 0x7f02d74e15bf in event_manager::await_single_message() ../subprojects/event_manager/src/event_manager.cpp:494
+    #9 0x7f02d74e0f58 in event_manager::start() ../subprojects/event_manager/src/event_manager.cpp:454
+    #10 0x7f02d68f0de2 in network_server::start() ../src/core.cpp:39
+    #11 0x5618cf9aed47 in app_methods::app_methods(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) ../example/example.hpp:43
+    #12 0x5618cf9ac838 in main ../example/example.cpp:108
+    #13 0x7f02d6229d8f  (/lib/x86_64-linux-gnu/libc.so.6+0x29d8f)
+
+Indirect leak of 8 byte(s) in 1 object(s) allocated from:
+    #0 0x7f02d6ab6337 in operator new[](unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:102
+    #1 0x7f02d74de0ef in event_manager::queue_event_read(int, unsigned long, events) ../subprojects/event_manager/src/event_manager.cpp:170
+    #2 0x7f02d74dddca in event_manager::submit_event_read(int, unsigned long, events) ../subprojects/event_manager/src/event_manager.cpp:146
+    #3 0x7f02d74e0beb in event_manager::event_manager(server_methods*) ../subprojects/event_manager/src/event_manager.cpp:441
+    #4 0x5618cf9adbaa in event_manager::event_manager() ../subprojects/event_manager/event_manager.hpp:143
+    #5 0x5618cf9aebdf in app_methods::app_methods(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) ../example/example.hpp:29
+    #6 0x5618cf9ac838 in main ../example/example.cpp:108
+    #7 0x7f02d6229d8f  (/lib/x86_64-linux-gnu/libc.so.6+0x29d8f)
+
+SUMMARY: AddressSanitizer: 6558 byte(s) leaked in 152 allocation(s).
+
+
+
+
+
+
+
+21dec 13:57pm:
+freeing task id: 80, container size: 0
+got a request: GET, of size: 348 from fd 8
+filepath: /home/watcher/network_server/public/index.html
+                        (locked) /home/watcher/network_server/public/index.html has 0 locks
+client pfd is: 4
+ret is: 1
+        io_uring request failure with (code, pfd, fd): (-9, 4, 9)
+                        (attempt unlock) try to unlock: /home/watcher/network_server/public/index.html
+                        (unlocked) /home/watcher/network_server/public/index.html has 18446744073709551615 locks
+writev occurred, using http_send_file
+connection closed: 4 at time 1671630996
+freeing task id: 83, container size: 0
+        io_uring request failure with (code, pfd, fd): (-9, 4, 9)
+got a request: , of size: 0 from fd 9
+connection closed: 4 at time 1671630996
+freeing task id: 82, container size: 0
+got a request: GET, of size: 372 from fd 9
+filepath: /home/watcher/network_server/public/index.html
+                        (locked) /home/watcher/network_server/public/index.html has 0 locks
+client pfd is: 4
+ret is: 1
+AddressSanitizer:DEADLYSIGNAL
+=================================================================
+==398717==ERROR: AddressSanitizer: SEGV on unknown address 0x7f0c4843a000 (pc 0x7f0c4908c7bd bp 0x7ffd74c20d00 sp 0x7ffd74c20cd0 T0)
+==398717==The signal is caused by a WRITE memory access.
+    #0 0x7f0c4908c7bd in io_uring_prep_rw /usr/include/liburing.h:257
+    #1 0x7f0c4908ca67 in io_uring_prep_read /usr/include/liburing.h:507
+    #2 0x7f0c4908e962 in event_manager::queue_read(int, unsigned char*, unsigned long, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:223
+    #3 0x7f0c4908d8b3 in event_manager::submit_read(int, unsigned char*, unsigned long, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:78
+    #4 0x7f0c484e9c8d in network_server::read_callback(processed_data, unsigned long, unsigned long) ../src/callbacks.cpp:258
+    #5 0x7f0c49092562 in event_manager::event_handler(int, request_data*) ../subprojects/event_manager/src/event_manager.cpp:566
+    #6 0x7f0c490915df in event_manager::await_single_message() ../subprojects/event_manager/src/event_manager.cpp:494
+    #7 0x7f0c49090f78 in event_manager::start() ../subprojects/event_manager/src/event_manager.cpp:454
+    #8 0x7f0c484f422c in network_server::start() ../src/core.cpp:39
+    #9 0x557746d2ed2d in app_methods::app_methods(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) ../example/example.hpp:45
+    #10 0x557746d2c821 in main ../example/example.cpp:108
+    #11 0x7f0c47e29d8f in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:58
+    #12 0x7f0c47e29e3f in __libc_start_main_impl ../csu/libc-start.c:392
+    #13 0x557746d28e74 in _start (/home/watcher/network_server/build/example/network_server_example+0x2be74)
+
+AddressSanitizer can not provide additional info.
+SUMMARY: AddressSanitizer: SEGV /usr/include/liburing.h:257 in io_uring_prep_rw
+==398717==ABORTING
+
+
+
+
+
+
+
+
+
+
+21dec 18:26pm:
+writev occurred, using http_send_file
+got a request: GET, of size: 340 from fd 288
+filepath: /home/watcher/network_server/public/index.html
+			(locked) /home/watcher/network_server/public/index.html has 1 locks
+client pfd is: 10
+(http send file) ret is: 1
+	io_uring request failure with (code, pfd, fd): (-107, 11, 280)
+connection closed: 11 at time 1671647091
+freeing task id: 24825, container size: 0
+	io_uring request failure with (code, pfd, fd): (-107, 11, 280)
+connection closed: 11 at time 1671647091
+freeing task id: 24825, container size: 0
+	io_uring request failure with (code, pfd, fd): (-9, 10, 278)
+			(attempt unlock) try to unlock: /home/watcher/network_server/public/index.html
+			(unlocked) /home/watcher/network_server/public/index.html has 0 locks
+writev occurred, using http_send_file
+connection closed: 10 at time 1671647091
+freeing task id: 24828, container size: 0
+	io_uring request failure with (code, pfd, fd): (-9, 10, 278)
+got a request: , of size: 0 from fd 278
+connection closed: 10 at time 1671647091
+freeing task id: 24827, container size: 0
+got a request: GET, of size: 340 from fd 278
+filepath: /home/watcher/network_server/public/index.html
+			(locked) /home/watcher/network_server/public/index.html has 1 locks
+client pfd is: 10
+(http send file) ret is: 1
+connection closed: 11 at time 1671647091
+freeing task id: 24826, container size: 0
+	io_uring request failure with (code, pfd, fd): (-9, 10, 288)
+terminate called after throwing an instance of 'std::filesystem::__cxx11::filesystem_error'
+			(attempt unlock) try to unlock: /home/watcher/network_server/public/index.html
+			(unlocked) /home/watcher/network_server/public/index.html has 0 locks
+writev occurred, using http_send_file
+connection closed: 10 at time 1671647091
+freeing task id: 24830, container size: 0
+	io_uring request failure with (code, pfd, fd): (-9, 10, 288  what():  filesystem error: directory iterator cannot open directory: Bad file descriptor [/proc/self/fd]
+)
+Aborted (core dumped)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+22dec 02:51am:
+(http send file) ret is: 0
+connection closed: 3 at time 1671677401
+connection closed: 3 at time 1671677401
+connection closed: 3 at time 1671677401
+connection closed: 3 at time 1671677401
+connection closed: 4 at time 1671677401
+connection closed: 4 at time 1671677401
+connection closed: 4 at time 1671677401
+filepath: /home/watcher/network_server/public/index.html
+(http send file) ret is: 0
+connection closed: 3 at time 1671677401
+connection closed: 3 at time 1671677401
+connection closed: 3 at time 1671677401
+connection closed: 3 at time 1671677401
+filepath: /home/watcher/network_server/public/index.html
+(http send file) ret is: 0
+connection closed: 4 at time 1671677401
+connection closed: 4 at time 1671677401
+connection closed: 4 at time 1671677401
+connection closed: 3 at time 1671677401
+connection closed: 4 at time 1671677401
+connection closed: 4 at time 1671677401
+connection closed: 4 at time 1671677401
+connection closed: 4 at time 1671677401
+connection closed: 3 at time 1671677401
+connection closed: 3 at time 1671677401
+connection closed: 3 at time 1671677401
+AddressSanitizer:DEADLYSIGNAL
+=================================================================
+==227509==ERROR: AddressSanitizer: SEGV on unknown address 0x7fe7a5e3d000 (pc 0x7fe7a6b7177d bp 0x7ffdc79f9c20 sp 0x7ffdc79f9bf0 T0)
+==227509==The signal is caused by a WRITE memory access.
+    #0 0x7fe7a6b7177d in io_uring_prep_rw /usr/include/liburing.h:257
+    #1 0x7fe7a6b71ac7 in io_uring_prep_shutdown /usr/include/liburing.h:599
+    #2 0x7fe7a6b74f9b in event_manager::queue_shutdown(int, int, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:384
+    #3 0x7fe7a6b72ba8 in event_manager::submit_shutdown(int, int, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:122
+    #4 0x7fe7a5ef666c in network_server::close_pfd_gracefully(int, unsigned long) ../src/core.cpp:129
+    #5 0x7fe7a5eee2af in network_server::write_callback(processed_data, unsigned long, unsigned long) ../src/callbacks.cpp:487
+    #6 0x7fe7a6b77051 in event_manager::event_handler(int, request_data*) ../subprojects/event_manager/src/event_manager.cpp:563
+    #7 0x7fe7a6b76309 in event_manager::await_single_message() ../subprojects/event_manager/src/event_manager.cpp:496
+    #8 0x7fe7a6b75f38 in event_manager::start() ../subprojects/event_manager/src/event_manager.cpp:454
+    #9 0x7fe7a5ef59d0 in network_server::start() ../src/core.cpp:39
+    #10 0x55cd4f255584 in app_methods::app_methods(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) ../example/example.hpp:79
+    #11 0x55cd4f2523e8 in main ../example/example.cpp:128
+    #12 0x7fe7a5829d8f in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:58
+    #13 0x7fe7a5829e3f in __libc_start_main_impl ../csu/libc-start.c:392
+    #14 0x55cd4f24eef4 in _start (/home/watcher/network_server/build/example/network_server_example+0x2bef4)
+
+AddressSanitizer can not provide additional info.
+SUMMARY: AddressSanitizer: SEGV /usr/include/liburing.h:257 in io_uring_prep_rw
+==227509==ABORTING
