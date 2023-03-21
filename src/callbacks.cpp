@@ -3,38 +3,63 @@
 #include "header/metadata.hpp"
 #include "network_server.hpp"
 #include <cstdint>
+#include <functional>
 #include <sys/inotify.h>
 #include <sys/types.h>
+
+using should_continue = bool;
+
+should_continue process_res_num(int res_num, int errnum, std::function<void(void)> default_handler,
+                                std::unordered_map<int, std::function<void(void)>> errnum_handlers) {
+  if (res_num >= 0) {
+    return true;
+    ;
+  }
+
+  if (errnum_handlers.find(errnum) != errnum_handlers.end()) {
+    errnum_handlers[errnum]();
+  } else {
+    default_handler();
+  }
+
+  return false;
+}
+
+void accept_error_intr_aborted(event_manager *ev, int listener_pfd, uint64_t pfd, int op_res_numd) {
+  PRINT_DEBUG("EINTR INTERCEPTED: resubmitting accept");
+  if (ev->submit_accept(listener_pfd) < 0 && !ev->is_dying_or_dead()) {
+    // for now just exits if the accept failed
+    PRINT_ERROR_DEBUG("\t\tsomething failed: (code, pfd, listener pfd): (" << op_res_num << ", " << pfd
+                                                                           << ", " << listener_pfd << ")");
+    FATAL_ERROR("Accept EINTR resubmit failed");
+  }
+}
+
+void accept_error_default(event_manager *ev, int listener_pfd, uint64_t pfd, int op_res_num) {
+  if (!ev->is_dying_or_dead()) {
+    // there was some other error, in case of accept treat it as fatal for now
+    PRINT_ERROR_DEBUG("\t\tsomething failed: (code, pfd, listener pfd): (" << op_res_num << ", " << pfd
+                                                                           << ", " << listener_pfd << ")");
+    FATAL_ERROR("(" << __FUNCTION__ << ": " << __LINE__ << "), errno: " << errno
+                    << ", op_res_num: " << op_res_num);
+  }
+
+  // in case of any of these errors, just close the socket
+  ev->shutdown_and_close_normally(pfd);
+}
 
 void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_data, socklen_t size,
                                      uint64_t pfd, int op_res_num, uint64_t additional_info) {
   // clears the queue, so previous queued stuff doesn't interfere with the accept stuff
   ev->submit_all_queued_sqes();
 
-  if (op_res_num < 0) {
-    switch (errno) {
-    // for these errors, just try again, otherwise fail
-    case ECONNABORTED:
-    case EINTR:
-      PRINT_DEBUG("EINTR INTERCEPTED: resubmitting accept");
-      if (ev->submit_accept(listener_pfd) < 0 && !ev->is_dying_or_dead()) {
-        // for now just exits if the accept failed
-        PRINT_ERROR_DEBUG("\t\tsomething failed: (code, pfd, listener pfd): (" << op_res_num << ", " << pfd << ", " << listener_pfd << ")");
-        FATAL_ERROR("Accept EINTR resubmit failed");
-      }
-      break;
-    default: {
-      if(!ev->is_dying_or_dead()) {
-        // there was some other error, in case of accept treat it as fatal for now
-        PRINT_ERROR_DEBUG("\t\tsomething failed: (code, pfd, listener pfd): (" << op_res_num << ", " << pfd << ", " << listener_pfd << ")");
-        FATAL_ERROR("(" << __FUNCTION__ << ": " << __LINE__ << "), errno: " << errno << ", op_res_num: " << op_res_num);
-      }
+  auto error_default = std::bind(accept_error_default, ev, listener_pfd, pfd, op_res_num);
+  auto error_intr_aborted = std::bind(accept_error_intr_aborted, ev, listener_pfd, pfd, op_res_num);
 
-      // in case of any of these errors, just close the socket
-      ev->shutdown_and_close_normally(pfd);
-    }
-    }
+  bool should_continue = process_res_num(op_res_num, 0, error_default,
+                                         {{ECONNABORTED, error_intr_aborted}, {EINTR, error_intr_aborted}});
 
+  if (!should_continue) {
     return;
   }
 
@@ -51,14 +76,15 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
     free_task(user_task_id);
     ev->shutdown_and_close_normally(pfd);
 
-    PRINT_ERROR_DEBUG("\tinitial read failed: (errno, listner pfd, listener fd, pfd, fd): (" << errno << ", " << listener_pfd << ", "
-          << ev->get_pfd_data(listener_pfd).fd << ", " << pfd << ", " << ev->get_pfd_data(pfd).fd << ")\n");
+    PRINT_ERROR_DEBUG("\tinitial read failed: (errno, listner pfd, listener fd, pfd, fd): ("
+                      << errno << ", " << listener_pfd << ", " << ev->get_pfd_data(listener_pfd).fd << ", "
+                      << pfd << ", " << ev->get_pfd_data(pfd).fd << ")\n");
   }
 
   // carry on listening, submits everything in the queue with it, not using task_id for this
   if (ev->submit_accept(listener_pfd) < 0 && !ev->is_dying_or_dead()) {
     PRINT_ERROR_DEBUG("\t\tsubmit failed: (errno, pfd, fd): (" << errno << ", " << listener_pfd << ", "
-              << ev->get_pfd_data(listener_pfd).fd << ")\n");
+                                                               << ev->get_pfd_data(listener_pfd).fd << ")\n");
     FATAL_ERROR("Submit accept normal resubmit failed");
   }
 }
@@ -98,7 +124,7 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
       if (task.op_type == INOTIFY_READ || task.op_type == NETWORK_READ || task.op_type == HTTP_POST_READ) {
         FREE(task.buff);
 
-        if(task.op_type == INOTIFY_READ) {
+        if (task.op_type == INOTIFY_READ) {
           ev->shutdown_and_close_normally(pfd);
           return;
         }
@@ -125,7 +151,7 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
     if (task.op_type == INOTIFY_READ || task.op_type == NETWORK_READ || task.op_type == HTTP_POST_READ) {
       FREE(task.buff);
 
-      if(task.op_type == INOTIFY_READ) {
+      if (task.op_type == INOTIFY_READ) {
         ev->shutdown_and_close_normally(pfd);
         return;
       }
@@ -190,7 +216,7 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
         auto &task = task_data[task_id];
 
         // for HTTP_SEND_FILE, auto_resubmit_read automatically converts the request to NETWORK_READ
-        if(should_auto_resubmit_read) {
+        if (should_auto_resubmit_read) {
           task.progress = 0;
 
           // revert to a normal network read
@@ -233,7 +259,7 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
 
     // auto resubmit read - this is for when you've had a normal HTTP operation
     // and so this is needed to know if the socket has closed the connection (since it will read 0)
-    if(should_auto_resubmit_read) {
+    if (should_auto_resubmit_read) {
       task.progress = 0;
       state.shutdown_done = false;
       std::memset(task.buff, 0, task.buff_length);
@@ -248,12 +274,12 @@ void network_server::read_callback(processed_data read_metadata, uint64_t pfd, u
   }
   case operation_type::INOTIFY_READ: {
     auto &task = task_data[task_id];
-    inotify_event *e = (inotify_event*)task.buff;
+    inotify_event *e = (inotify_event *)task.buff;
     cache.process_inotify_event(e);
-    
+
     memset(task.buff, 0, task.buff_length);
     int submit_code = ev->submit_read(pfd, task.buff, task.buff_length, task_id);
-    if(submit_code < 0) {
+    if (submit_code < 0) {
       FREE(e);
     }
     break;
@@ -526,24 +552,25 @@ void network_server::close_callback(uint64_t pfd, int op_res_num, uint64_t task_
 }
 
 void network_server::event_callback(int pfd, int op_res_num, uint64_t additional_info) {
-  if (op_res_num < 0) {
-    switch (errno) {
-    case EINTR:
-      // for these errors, just try again, otherwise fail
-      if(ev->submit_generic_event(pfd, additional_info) < 0) {
-        callbacks->event_trigger_callback(pfd, additional_info, true);
-      }
-      break;
-    default: {
-      // in case of any of these errors, just close the socket
-      ev->shutdown_and_close_normally(pfd);
-
-      // there was some other error
+  auto eintr_error_handler = [this, pfd, additional_info]() {
+    // for these errors, just try again, otherwise fail
+    if (ev->submit_generic_event(pfd, additional_info) < 0) {
       callbacks->event_trigger_callback(pfd, additional_info, true);
-      return;
     }
-    }
-  }
+  };
+
+  auto default_error_handler = [this, pfd, additional_info]() {
+    // in case of any of these errors, just close the socket
+    ev->shutdown_and_close_normally(pfd);
+
+    // there was some other error
+    callbacks->event_trigger_callback(pfd, additional_info, true);
+  };
+
+  bool should_continue =
+      process_res_num(op_res_num, errno, default_error_handler, {{EINTR, eintr_error_handler}});
+  if (!should_continue)
+    return;
 
   callbacks->event_trigger_callback(pfd, additional_info);
 }
