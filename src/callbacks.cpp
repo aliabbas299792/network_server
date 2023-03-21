@@ -16,29 +16,18 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
     // for these errors, just try again, otherwise fail
     case ECONNABORTED:
     case EINTR:
-#ifdef VERBOSE_DEBUG
-      printf("EINTR INTERCEPTED: resumibtting accept\n");
-#endif
+      PRINT_DEBUG("EINTR INTERCEPTED: resubmitting accept");
       if (ev->submit_accept(listener_pfd) < 0 && !ev->is_dying_or_dead()) {
         // for now just exits if the accept failed
-#ifdef VERBOSE_DEBUG
-        std::cerr << "\t\tsomething failed: (code, pfd, listener pfd): (" << op_res_num << ", " << pfd << ", "
-                  << listener_pfd << ")\n";
-#endif
-        utility::fatal_error("Accept EINTR resubmit failed");
+        PRINT_ERROR_DEBUG("\t\tsomething failed: (code, pfd, listener pfd): (" << op_res_num << ", " << pfd << ", " << listener_pfd << ")");
+        FATAL_ERROR("Accept EINTR resubmit failed");
       }
       break;
     default: {
       if(!ev->is_dying_or_dead()) {
-#ifdef VERBOSE_DEBUG
-        printf("accept fatal error...\n");
-        std::cerr << "\t\tsomething failed: (code, pfd, listener pfd): (" << op_res_num << ", " << pfd << ", "
-                  << listener_pfd << ")\n";
-#endif
         // there was some other error, in case of accept treat it as fatal for now
-        std::string error = "(" + std::string(__FUNCTION__) + ": " + std::to_string(__LINE__);
-        error += "), errno: " + std::to_string(errno) + ", op_res_num: " + std::to_string(op_res_num);
-        utility::fatal_error(error);
+        PRINT_ERROR_DEBUG("\t\tsomething failed: (code, pfd, listener pfd): (" << op_res_num << ", " << pfd << ", " << listener_pfd << ")");
+        FATAL_ERROR("(" << __FUNCTION__ << ": " << __LINE__ << "), errno: " << errno << ", op_res_num: " << op_res_num);
       }
 
       // in case of any of these errors, just close the socket
@@ -61,18 +50,16 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
     FREE(buff);
     free_task(user_task_id);
     ev->shutdown_and_close_normally(pfd);
-#ifdef VERBOSE_DEBUG
-    std::cerr << "\tinitial read failed: (errno, listner pfd, listener fd, pfd, fd): (" << errno << ", " << listener_pfd << ", "
-              << ev->get_pfd_data(listener_pfd).fd << ", " << pfd << ", "
-              << ev->get_pfd_data(pfd).fd << ")\n";
-#endif
+
+    PRINT_ERROR_DEBUG("\tinitial read failed: (errno, listner pfd, listener fd, pfd, fd): (" << errno << ", " << listener_pfd << ", "
+          << ev->get_pfd_data(listener_pfd).fd << ", " << pfd << ", " << ev->get_pfd_data(pfd).fd << ")\n");
   }
 
   // carry on listening, submits everything in the queue with it, not using task_id for this
   if (ev->submit_accept(listener_pfd) < 0 && !ev->is_dying_or_dead()) {
-    std::cerr << "\t\tsubmit failed: (errno, pfd, fd): (" << errno << ", " << listener_pfd << ", "
-              << ev->get_pfd_data(listener_pfd).fd << ")\n";
-    utility::fatal_error("Submit accept normal resubmit failed");
+    PRINT_ERROR_DEBUG("\t\tsubmit failed: (errno, pfd, fd): (" << errno << ", " << listener_pfd << ", "
+              << ev->get_pfd_data(listener_pfd).fd << ")\n");
+    FATAL_ERROR("Submit accept normal resubmit failed");
   }
 }
 
@@ -488,9 +475,7 @@ void network_server::write_callback(processed_data write_metadata, uint64_t pfd,
 
     switch (task.op_type) {
     case HTTP_WRITE:
-#ifdef VERBOSE_DEBUG
-      std::cout << (int64_t)task.buff << "\n";
-#endif
+      PRINT_DEBUG((int64_t)task.buff << " -- task buffer pointer");
       callbacks->http_write_callback(data, pfd);
       close_pfd_gracefully(pfd, task_id);
       break;
@@ -504,9 +489,7 @@ void network_server::write_callback(processed_data write_metadata, uint64_t pfd,
       break;
     }
 
-#ifdef VERBOSE_DEBUG
-    std::cout << "watch out for this, this is potentially an incorrect freeing of the task\n";
-#endif
+    PRINT_DEBUG("watch out for this, this is potentially an incorrect freeing of the task");
     free_task(task_id); // done writing, task can be freed now
   }
 }

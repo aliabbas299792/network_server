@@ -11,9 +11,7 @@ network_server::network_server(int port, event_manager *ev, application_methods 
 
   // callbacks used by the network server
   if (callbacks == nullptr) {
-    std::string error = "Application methods callbacks must be set (" + std::string(__FUNCTION__);
-    error += ": " + std::to_string(__LINE__);
-    utility::fatal_error(error);
+    FATAL_ERROR("Application methods callbacks must be set (" << __FUNCTION__ << ": " << __LINE__);
   }
   this->callbacks = callbacks;
 
@@ -24,7 +22,7 @@ network_server::network_server(int port, event_manager *ev, application_methods 
   // initialise listening
   listener_pfd = utility::setup_listener_pfd(port, ev);
   if (ev->submit_accept(listener_pfd) < 0) {
-    utility::fatal_error("Listener accept failed");
+    FATAL_ERROR("Listener accept failed");
   }
 
   // initial read for the cache
@@ -89,9 +87,8 @@ int network_server::get_task_vector_op(operation_type type, struct iovec *iovecs
 }
 
 void network_server::free_task(int task_id) {
-#ifdef VERBOSE_DEBUG
-  std::cout << "freeing task id: " << task_id << ", container size: " << task_freed_idxs.size() << "\n";
-#endif
+  PRINT_DEBUG("freeing task id: " << task_id << ", container size: " << task_freed_idxs.size());
+  PRINT_DEBUG(" \t\t--- not actually freeing it ---\n");
   // task_data[task_id] = {};
   // task_freed_idxs.insert(task_id);
 }

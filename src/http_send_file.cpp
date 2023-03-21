@@ -3,6 +3,8 @@
 #include "header/lru.hpp"
 #include "subprojects/event_manager/event_manager.hpp"
 
+#include <fcntl.h>
+
 // 416 range unsatisfiable helper function
 static void helper_range_unsatisfiable_error_send(network_server *ns, int client_num);
 static bool is_using_ranges(const task &t);
@@ -58,9 +60,7 @@ int network_server::http_send_file_writev_submit_helper(int task_id, int client_
   task.num_iovecs = 2;
   memcpy(task.iovs, task.buff, task.num_iovecs * sizeof(iovec));
 
-#ifdef VERBOSE_DEBUG
-  std::cout << "client pfd is: " << client_pfd << "\n";
-#endif
+  PRINT_DEBUG("client pfd is: " << client_pfd);
   return ev->submit_writev(client_pfd, task.iovs, task.num_iovecs, task_id);
 }
 

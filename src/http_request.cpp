@@ -1,5 +1,6 @@
 #include "header/http_request.hpp"
 #include "header/debug_mem_ops.hpp"
+#include "header/utility.hpp"
 #include <cstring>
 
 void http_request::req_type_data_parser(char *token_str) {
@@ -308,9 +309,8 @@ std::vector<range> http_request::get_ranges(size_t max_size, bool *valid_range) 
       start = std::atoi(range_start);
 
       if (start >= max_size - 1) {
-#ifdef VERBOSE_DEBUG
-        std::cout << max_size << " is max size\n\n\n\n";
-#endif
+        PRINT_DEBUG(max_size << " is max size\n\n\n");
+        
         *valid_range = false;
         break;
       }
@@ -324,12 +324,11 @@ std::vector<range> http_request::get_ranges(size_t max_size, bool *valid_range) 
           end = max_size - 1;
         }
       } else {
-#ifdef VERBOSE_DEBUG
-        std::cout << "\n\n\t\trange str: |" << range_str << "|\n";
-        std::cout << "\t\trange start: |" << range_start << "|\n";
-        std::cout << "\t\trange end is nullptr: |" << (range_end == nullptr) << "|\n";
-        std::cout << "\t\trange end len: |" << strlen(range_end) << "|\n\n";
-#endif
+        PRINT_DEBUG("\n\n\t\trange str: |" << range_str << "|");
+        PRINT_DEBUG("\t\trange start: |" << range_start << "|");
+        PRINT_DEBUG("\t\trange end is nullptr: |" << (range_end == nullptr) << "|");
+        PRINT_DEBUG("\t\trange end len: |" << strlen(range_end) << "|\n");
+
         end = std::atoi(range_end);
         if (*range_end != '0' && end == 0)
           break;

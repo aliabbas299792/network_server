@@ -53,7 +53,7 @@ public:
     rlimit rlim{};
     getrlimit(RLIMIT_NOFILE, &rlim);
     rlim.rlim_cur = rlim.rlim_max;
-    std::cout << setrlimit(RLIMIT_NOFILE, &rlim) << " is rlimit res\n";
+    PRINT_DEBUG(setrlimit(RLIMIT_NOFILE, &rlim) << " is rlimit res");
 
     event_manager ev{};
     network_server ns{port, &ev, this};
@@ -69,8 +69,7 @@ public:
 
         rlimit rlim{};
         getrlimit(RLIMIT_NOFILE, &rlim);
-        std::cout << " ### NUM OPEN FILE DESCRIPTORS (num open/max allowed): " << count_open_fds() << "/"
-                  << rlim.rlim_cur << ", hard limit is: " << rlim.rlim_max << std::endl;
+        PRINT_DEBUG(" ### NUM OPEN FILE DESCRIPTORS (num open/max allowed): " << count_open_fds() << "/" << rlim.rlim_cur << ", hard limit is: " << rlim.rlim_max);
 #endif
 
         std::this_thread::sleep_for(std::chrono::seconds(1));

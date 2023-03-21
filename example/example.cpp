@@ -13,9 +13,7 @@ void app_methods::http_read_callback(http_request &&req, int client_num, bool fa
 
   if (req.req_type == "POST") {
 
-#ifdef VERBOSE_DEBUG
-    std::cout << "path: " << req.path << "\n";
-#endif
+    PRINT_DEBUG("path: " << req.path);
     if (req.path == "/upload_file") {
       auto items = req.extract_post_data_items();
 
@@ -25,27 +23,13 @@ void app_methods::http_read_callback(http_request &&req, int client_num, bool fa
         write(write_fd, item.buff, item.size);
         close(write_fd);
 
-#ifdef VERBOSE_DEBUG
-        if (item.name)
-          std::cout << "name: " << item.name << "\n";
-        if (item.filename)
-          std::cout << "filename: " << item.filename << "\n";
-        if (item.content_disposition)
-          std::cout << "disposition: " << item.content_disposition << "\n";
-        if (item.content_type)
-          std::cout << "type: " << item.content_type << "\n";
-        std::cout << "size: " << item.size << "\n\n";
-#endif
+        PRINT_DEBUG("name: " << item.name << "\n" << "filename: " << item.filename << "\n" << "disposition: "
+          << item.content_disposition << "\n" << "type: " << item.content_type << "\n" << "size: " << item.size << "\n");
       }
-
-#ifdef VERBOSE_DEBUG
-      std::cout << "num items: " << items.size() << "\n";
-#endif
+      PRINT_DEBUG("num items: " << items.size());
     }
 
-#ifdef VERBOSE_DEBUG
-    std::cout << "\n\n" << req.content_length << " is the content length\n\n";
-#endif
+    PRINT_DEBUG("\n\n" << req.content_length << " is the content length\n");
 
     const char str[] = "Hello world! Good to see you contact me";
     uint8_t *buff = (uint8_t *)MALLOC(strlen(str) + 1);
@@ -78,14 +62,9 @@ void app_methods::http_read_callback(http_request &&req, int client_num, bool fa
     } else {
       const auto errorfilepath = base_file_path + "/404.html";
 
-#ifdef VERBOSE_DEBUG
-      std::cout << "filepath: " << filepath << "\n";
-#endif
+      PRINT_DEBUG("filepath: " << filepath);
       auto ret = ns->http_send_file(client_num, filepath.c_str(), errorfilepath.c_str(), req);
-
-#ifdef VERBOSE_DEBUG
-      std::cout << "(http send file) ret is: " << ret << "\n";
-#endif
+      PRINT_DEBUG("(http send file) ret is: " << ret);
     }
   }
 }
@@ -104,25 +83,18 @@ void app_methods::http_write_callback(buff_data data, int client_num, bool faile
 void app_methods::http_writev_callback(struct iovec *data, size_t num_iovecs, int client_num,
                                        bool failed_req) {
   if (num_iovecs > 0) {
-#ifdef VERBOSE_DEBUG
-    std::cout << "wrtiev happened, data len: " << data[1].iov_len << "\n";
-#endif
-
+    PRINT_DEBUG("wrtiev happened, data len: " << data[1].iov_len);
     FREE(data[0].iov_base);
     FREE(data[1].iov_base);
     FREE(data);
   } else {
-#ifdef VERBOSE_DEBUG
-    std::cout << "writev occurred, using http_send_file\n";
-#endif
+    PRINT_DEBUG("writev occurred, using http_send_file");
   }
 }
 
 void app_methods::http_close_callback(int client_num) {
-#ifdef VERBOSE_DEBUG
-  std::cout << "connection closed: " << client_num << " at time " << (unsigned long)time(NULL) << "\n";
+  PRINT_DEBUG("connection closed: " << client_num << " at time " << (unsigned long)time(NULL));
   MEM_PRINT();
-#endif
 }
 
 int main() { app_methods{"/home/watcher/network_server/public"}; }

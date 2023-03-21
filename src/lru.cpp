@@ -93,9 +93,8 @@ item_data *const lru_file_cache::get_and_lock_item(std::string file_name) {
   }
 
   node->num_locks++;
-#ifdef VERBOSE_DEBUG
-  std::cout << "\t\t\t(locked) " << file_name << " has " << node->num_locks << " locks\n";
-#endif
+  PRINT_DEBUG("\t\t\t(locked) " << file_name << " has " << node->num_locks << " locks");
+
   auto data = &(node->data);
 
   if (node == head) { // special case if head (1 node)
@@ -123,21 +122,17 @@ item_data *const lru_file_cache::get_and_lock_item(std::string file_name) {
 }
 
 void lru_file_cache::unlock_item(std::string file_name) {
-#ifdef VERBOSE_DEBUG
-  std::cout << "\t\t\t(attempt unlock) try to unlock: " << file_name << "\n";
-#endif
+  PRINT_DEBUG("\t\t\t(attempt unlock) try to unlock: " << file_name);
+  
   for (auto n = head; n != nullptr; n = n->next) {
     if (n->data.file_name == file_name && n->num_locks != 0) {
       n->num_locks--;
-#ifdef VERBOSE_DEBUG
-      std::cout << "\t\t\t(unlocked) " << file_name << " has " << n->num_locks << " locks\n";
-#endif
+
+      PRINT_DEBUG("\t\t\t(unlocked) " << file_name << " has " << n->num_locks << " locks");
       return;
     }
   }
-#ifdef VERBOSE_DEBUG
-  std::cout << "\t\t\t(failed unlock) wasn't able to unlock " << file_name << "\n";
-#endif
+  PRINT_DEBUG("\t\t\t(failed unlock) wasn't able to unlock " << file_name);
 }
 
 bool lru_file_cache::remove_item(std::string file_name) {

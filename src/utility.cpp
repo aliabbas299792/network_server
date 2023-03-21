@@ -1,6 +1,7 @@
 #include <cstring>
 #include <netdb.h>
 #include <netinet/tcp.h>
+#include <iostream>
 
 #include "header/utility.hpp"
 
@@ -45,13 +46,11 @@ std::string b64_encode(const char *str) {
 }
 
 void log_helper_function(std::string msg, bool cerr_or_not) {
-#ifdef VERBOSE_DEBUG
   time_t t = time(NULL);
   struct tm *tm = localtime(&t);
   std::string time = asctime(tm);
   time.pop_back();
-  std::cout << "[ " << time << " ]: " << msg << std::endl;
-#endif
+  PRINT_DEBUG("[ " << time << " ]: " << msg);
 }
 
 void fatal_error(std::string error_message) {
@@ -78,7 +77,7 @@ int setup_listener_pfd(int port, event_manager *ev) {
     listener_fd = socket(traverser->ai_family, traverser->ai_socktype, traverser->ai_protocol);
 
     if (listener_fd < 0) {
-      utility::fatal_error("Opening socket for listening failed");
+      FATAL_ERROR("Opening socket for listening failed");
     }
 
     // set socket flags
