@@ -7,3 +7,6 @@
 [submodule "vendor/sha1"]
 	path = vendor/sha1
 	url = https://github.com/vog/sha1.git
+[submodule "vendor/cpp_utility"]
+	path = vendor/cpp_utility
+	url = git@github.com:aliabbas299792/cpp_utility.git
