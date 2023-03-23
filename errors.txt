@@ -539,7 +539,7 @@ AddressSanitizer:DEADLYSIGNAL
     #1 0x7fe7a6b71ac7 in io_uring_prep_shutdown /usr/include/liburing.h:599
     #2 0x7fe7a6b74f9b in event_manager::queue_shutdown(int, int, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:384
     #3 0x7fe7a6b72ba8 in event_manager::submit_shutdown(int, int, unsigned long) ../subprojects/event_manager/src/event_manager.cpp:122
-    #4 0x7fe7a5ef666c in network_server::close_pfd_gracefully(int, unsigned long) ../src/core.cpp:129
+    #4 0x7fe7a5ef666c in network_server::ev->close_pfd(int, unsigned long) ../src/core.cpp:129
     #5 0x7fe7a5eee2af in network_server::write_callback(processed_data, unsigned long, unsigned long) ../src/callbacks.cpp:487
     #6 0x7fe7a6b77051 in event_manager::event_handler(int, request_data*) ../subprojects/event_manager/src/event_manager.cpp:563
     #7 0x7fe7a6b76309 in event_manager::await_single_message() ../subprojects/event_manager/src/event_manager.cpp:496

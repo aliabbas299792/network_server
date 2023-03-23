@@ -1,5 +1,8 @@
 #include "header/lru.hpp"
+#include "header/debug_mem_ops.hpp"
 #include "network_server.hpp"
+#include "vendor/cpp_utility/printing_helper.hpp"
+
 #include <sys/inotify.h>
 #include <unistd.h>
 
@@ -7,12 +10,10 @@
 const int MODIFY_EVENT = IN_MODIFY;
 const int DELETE_OR_MOVE_EVENT = IN_DELETE_SELF;
 
-int lru_file_cache::get_inotify_fd() {
-  return inotify_fd;
-}
+int lru_file_cache::get_inotify_fd() { return inotify_fd; }
 
 void lru_file_cache::process_inotify_event(inotify_event *e) {
-  if(e != nullptr && e->mask) { // file has been modified/moved/deleted
+  if (e != nullptr && e->mask) { // file has been modified/moved/deleted
     for (auto n = head; n != nullptr; n = n->next) {
       if (n->watch == e->wd) {
         n->outdated = true;
@@ -39,7 +40,7 @@ bool lru_file_cache::add_or_update_item(const std::string &file_name, char *buff
 
   if (num_items < max_num_items) {
     // need to use new/delete so that destructors are called
-    auto new_node = reinterpret_cast<item_node*>(new item_node);
+    auto new_node = reinterpret_cast<item_node *>(new item_node);
     if (tail == nullptr) {
       head = new_node;
       tail = head;
@@ -87,7 +88,7 @@ item_data *const lru_file_cache::get_and_lock_item(std::string file_name) {
     return nullptr;
   }
 
-  if(node->outdated) {
+  if (node->outdated) {
     remove_node(node);
     return nullptr;
   }
@@ -123,7 +124,7 @@ item_data *const lru_file_cache::get_and_lock_item(std::string file_name) {
 
 void lru_file_cache::unlock_item(std::string file_name) {
   PRINT_DEBUG("\t\t\t(attempt unlock) try to unlock: " << file_name);
-  
+
   for (auto n = head; n != nullptr; n = n->next) {
     if (n->data.file_name == file_name && n->num_locks != 0) {
       n->num_locks--;
@@ -169,7 +170,7 @@ bool lru_file_cache::remove_node(item_node *node) {
 
   inotify_rm_watch(inotify_fd, node->watch);
   FREE(node->data.buff); // frees the stored buffer
-  delete node;            // frees the node
+  delete node;           // frees the node
 
   return true;
 }
@@ -179,7 +180,7 @@ lru_file_cache::lru_file_cache(size_t size) {
   inotify_fd = inotify_init();
 }
 
-lru_file_cache::~lru_file_cache() { 
+lru_file_cache::~lru_file_cache() {
   for (auto n = head; n != nullptr;) {
     item_node *next = n->next;
     inotify_rm_watch(inotify_fd, n->watch);

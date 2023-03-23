@@ -1,4 +1,5 @@
 #include "header/debug_mem_ops.hpp"
+#include "header/utility.hpp"
 #include "network_server.hpp"
 #include <cstdint>
 #include <linux/limits.h>
@@ -17,7 +18,7 @@ network_server::network_server(int port, event_manager *ev, application_methods 
 
   // event manager setup
   this->ev = ev;
-  ev->set_server_methods(this);
+  ev->set_callbacks(this);
 
   // initialise listening
   listener_pfd = utility::setup_listener_pfd(port, ev);
@@ -93,51 +94,6 @@ void network_server::free_task(int task_id) {
   // task_freed_idxs.insert(task_id);
 }
 
-void network_server::close_pfd_gracefully(int pfd, uint64_t task_id) {
-  const auto &pfd_info = ev->get_pfd_data(pfd);
-
-  if ((int64_t)task_id >= 0) {
-    auto &task_info = task_data[task_id];
-
-    switch (task_info.op_type) {
-    case operation_type::NETWORK_READ:
-    case operation_type::HTTP_WRITE:
-    case operation_type::HTTP_WRITEV:
-      task_info.op_type = operation_type::HTTP_CLOSE;
-      break;
-    case operation_type::WEBSOCKET_READ:
-    case operation_type::WEBSOCKET_WRITE:
-    case operation_type::WEBSOCKET_WRITEV:
-      task_info.op_type = operation_type::WEBSOCKET_CLOSE;
-      break;
-    case operation_type::RAW_READ:
-    case operation_type::RAW_WRITE:
-    case operation_type::RAW_READV:
-    case operation_type::RAW_WRITEV:
-      task_info.op_type = operation_type::RAW_CLOSE;
-      break;
-    default:
-      break;
-    }
-  }
-
-  if (pfd_info.type == fd_types::NETWORK) {
-    // only HTTP_*, WEBSOCKET_*, maybe RAW_* and NETWORK_UNKNOWN
-    auto shutdown_code = ev->submit_shutdown(pfd, SHUT_RDWR, task_id);
-
-    if (shutdown_code < 0) {
-      ev->shutdown_and_close_normally(pfd);
-      application_close_callback(pfd, task_id);
-    }
-  } else {
-    // only EVENT_READ and maybe RAW_*
-    ev->close_pfd(pfd, task_id);
-    if ((int64_t)task_id >= 0) {
-      free_task(task_id);
-    }
-  }
-}
-
 void network_server::application_close_callback(int pfd, uint64_t task_id) {
   if ((int64_t)task_id < 0)
     return;
@@ -184,7 +140,7 @@ void network_server::network_read_procedure(int pfd, uint64_t task_id, bool *sho
   if (!http_response_method(pfd, should_auto_resubmit_read, data, failed_req) &&
       !websocket_frame_response_method(pfd, should_auto_resubmit_read, data, failed_req) && !failed_req) {
     // only need to call close method if it isn't a failed request, otherwise it is already going to close
-    close_pfd_gracefully(pfd, task_id);
+    ev->close_pfd(pfd, task_id);
   }
 }
 

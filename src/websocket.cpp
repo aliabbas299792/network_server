@@ -30,6 +30,6 @@ int network_server::websocket_close(int pfd) {
   auto &task = task_data[task_id];
   task.op_type = operation_type::WEBSOCKET_CLOSE;
 
-  close_pfd_gracefully(pfd, task_id);
+  ev->close_pfd(pfd, task_id);
   return 0;
 }

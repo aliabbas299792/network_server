@@ -77,6 +77,9 @@ void network_server::http_send_file_writev_finish(uint64_t pfd, uint64_t task_id
   FREE(task.buff);                     // frees the original iovec
   FREE(task.iovs);                     // frees the iovec copy
 
+  task.buff = nullptr;
+  task.iovs = nullptr;
+
   // 'unlocks' item if it is in the cache, so that it 
   cache.unlock_item(task.filepath);
   // additional_ptr has the pointer to the buffer read
@@ -127,7 +130,7 @@ void network_server::http_send_file_writev_continue(uint64_t pfd, uint64_t task_
   } else {
     http_send_file_writev_finish(pfd, task_id, false);
     // successful
-    close_pfd_gracefully(pfd, task_id);
+    ev->close_pfd(pfd, task_id);
   }
 }
 
@@ -211,7 +214,7 @@ int network_server::http_send_file(int client_num, const char *filepath, const c
   auto file_pfd = ev->pass_fd_to_event_manager(file_fd, false);
 
   if (!valid_range) {
-    close_pfd_gracefully(file_pfd);
+    ev->close_pfd(file_pfd);
     free_task(file_task_id);
     helper_range_unsatisfiable_error_send(this, client_num);
     return -1;
