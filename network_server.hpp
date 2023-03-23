@@ -2,14 +2,8 @@
 #define NETWORK_SERVER
 
 #include "subprojects/event_manager/event_manager.hpp"
-#include "header/debug_mem_ops.hpp"
 #include "header/http_request.hpp"
 #include "header/lru.hpp"
-#include "header/metadata.hpp"
-#include "header/utility.hpp"
-#include <cstdint>
-#include <cstring>
-#include <set>
 
 class network_server; // forward declaration for application methods
 class web_methods;
@@ -103,20 +97,12 @@ public:
   void set_network_server(network_server *ns) { this->ns = ns; }
 };
 
-// pfd_state is needed for storing any necessary state information
-// for now this is just used for shutting connections gracefully
-struct pfd_state {
-  char shutdown_done = false;  // for net sockets
-  char last_read_zero = false; // for net sockets
-};
-
 class network_server : public server_methods {
 private:
   friend class web_methods;
 
   lru_file_cache cache{CACHE_SIZE};
 
-  std::vector<pfd_state> pfd_states{};
   std::vector<task> task_data{};
   std::set<int> task_freed_idxs{};
   int get_task();
@@ -142,7 +128,7 @@ private:
   // renamed additional_info to task_id since it'll be used as task_id here
   // modified interface for task_id to default to -1 if not provided
   // assumes 2^64-1 tasks is enough (first 2^64-1 are valid, the final one is reserved invalid)
-  // close, event and shutdown don't need task_id since they will always finish in one call
+  // close and event don't need task_id since they will always finish in one call
   void accept_callback(int listener_pfd, sockaddr_storage *user_data, socklen_t size, uint64_t pfd,
                        int op_res_num, uint64_t additional_info = -1) override;
   void read_callback(processed_data read_metadata, uint64_t pfd, uint64_t task_id = -1) override;
@@ -150,13 +136,11 @@ private:
   void writev_callback(processed_data_vecs write_metadata, uint64_t pfd, uint64_t task_id = -1) override;
   void readv_callback(processed_data_vecs read_metadata, uint64_t pfd, uint64_t task_id = -1) override;
   void event_callback(int pfd, int op_res_num, uint64_t additional_info = -1) override;
-  void shutdown_callback(int how, uint64_t pfd, int op_res_num, uint64_t task_id = -1) override;
   void close_callback(uint64_t pfd, int op_res_num, uint64_t task_id = -1) override;
 
 private:
   // need to deal with various types operation_types
   void application_close_callback(int pfd, uint64_t task_id = -1);
-  void close_pfd_gracefully(int pfd, uint64_t task_id = -1); // will call shutdown if needed
 
   // helper methods
   bool http_response_method(int pfd, bool *should_auto_resubmit_read, buff_data data = {}, bool failed_req = false);

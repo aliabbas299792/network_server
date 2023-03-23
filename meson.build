@@ -5,10 +5,12 @@ libevent_manager_dep = libevent_manager_proj.get_variable('libevent_manager_dep'
 
 cpp_args_arr = ['-DVERBOSE_DEBUG', '-DFD_MEMORY_CACHE_STATS']
 
-src_files = ['src/utility.cpp', 'src/callbacks.cpp', 
-  'src/core.cpp', 'src/http_request.cpp', 'src/http.cpp',
+src_files = ['src/utility.cpp', 'src/core.cpp', 'src/http_request.cpp', 'src/http.cpp',
   'src/http_send_file.cpp', 'src/websocket.cpp', 'src/debug_mem_ops.cpp',
-  'src/raw_ops.cpp', 'src/http_response.cpp', 'src/lru.cpp'
+  'src/raw_ops.cpp', 'src/http_response.cpp', 'src/lru.cpp',
+  'src/callbacks/accept.cpp', 'src/callbacks/close.cpp', 'src/callbacks/common.cpp',
+  'src/callbacks/event.cpp', 'src/callbacks/read.cpp', 'src/callbacks/readv.cpp',
+  'src/callbacks/write.cpp', 'src/callbacks/writev.cpp'
 ]
 
 incdir = [include_directories('./')]
