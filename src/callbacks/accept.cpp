@@ -22,9 +22,12 @@ void network_server::accept_callback(int listener_pfd, sockaddr_storage *user_da
       break;
     default:
       // there was some other error, in case of accept treat it as fatal for now
-      PRINT_DEBUG("Something else failed:");
-      PRINT_DEBUG_VARS(op_res_num, pfd, listener_pfd);
-      FATAL_ERROR_VARS(__FUNCTION__, __LINE__, errno, op_res_num);
+      // but only if the server is still alive
+      if(!ev->is_dying_or_dead()) {
+        PRINT_DEBUG("Something else failed:");
+        PRINT_DEBUG_VARS(op_res_num, pfd, listener_pfd);
+        FATAL_ERROR_VARS(__FUNCTION__, __LINE__, errno, op_res_num);
+      }
 
       // in case of any of these errors, just close the socket
       ev->close_pfd(pfd);

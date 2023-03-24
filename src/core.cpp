@@ -28,7 +28,7 @@ network_server::network_server(int port, event_manager *ev, application_methods 
 
   // initial read for the cache
   int inotify_fd = cache.get_inotify_fd();
-  int inotify_pfd = ev->pass_fd_to_event_manager(inotify_fd, false);
+  int inotify_pfd = ev->pass_fd_to_event_manager(inotify_fd);
   size_t size_buff = sizeof(inotify_event) + NAME_MAX + 1;
   uint8_t *inotify_read_buff = (uint8_t*)MALLOC(size_buff);
   int inotify_read_task = get_task_buff_op(INOTIFY_READ, inotify_read_buff, size_buff);
@@ -144,6 +144,6 @@ void network_server::network_read_procedure(int pfd, uint64_t task_id, bool *sho
   }
 }
 
-int network_server::get_client_num_from_fd(int fd, bool is_network_fd) {
-  return ev->pass_fd_to_event_manager(fd, is_network_fd);
+int network_server::get_client_num_from_fd(int fd) {
+  return ev->pass_fd_to_event_manager(fd);
 }

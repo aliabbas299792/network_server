@@ -178,7 +178,7 @@ public:
 
   // hands over responsibility of this fd to the network server
   // returned client_num is used with other operations with the network server
-  int get_client_num_from_fd(int fd, bool is_network_fd);
+  int get_client_num_from_fd(int fd);
 
   void print_cache_stats() {
     cache.print_stats();

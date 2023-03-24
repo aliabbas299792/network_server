@@ -111,7 +111,7 @@ int setup_listener_pfd(int port, event_manager *ev) {
     return -1;
   }
 
-  return ev->pass_fd_to_event_manager(listener_fd, true);
+  return ev->pass_fd_to_event_manager(listener_fd);
 }
 
 } // namespace utility

@@ -211,7 +211,7 @@ int network_server::http_send_file(int client_num, const char *filepath, const c
     task.write_ranges = req.get_ranges(size, &valid_range);
   }
 
-  auto file_pfd = ev->pass_fd_to_event_manager(file_fd, false);
+  auto file_pfd = ev->pass_fd_to_event_manager(file_fd);
 
   if (!valid_range) {
     ev->close_pfd(file_pfd);
